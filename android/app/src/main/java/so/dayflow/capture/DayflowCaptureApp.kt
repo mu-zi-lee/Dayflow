@@ -6,12 +6,19 @@ import android.os.Bundle
 import androidx.room.Room
 import androidx.work.Configuration
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import so.dayflow.capture.capture.CaptureState
 import so.dayflow.capture.data.CaptureDatabase
 import so.dayflow.capture.data.CaptureRepository
 import so.dayflow.capture.sync.PairingStore
+import so.dayflow.capture.sync.SyncStatusStore
 
 class DayflowCaptureApp : Application(), Configuration.Provider {
   private val visibleActivityCount = AtomicInteger(0)
+  private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
   val hasVisibleActivity: Boolean
     get() = visibleActivityCount.get() > 0
@@ -25,6 +32,8 @@ class DayflowCaptureApp : Application(), Configuration.Provider {
 
   override fun onCreate() {
     super.onCreate()
+    CaptureState.initialize(this)
+    SyncStatusStore.initialize(this)
     registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
       override fun onActivityStarted(activity: Activity) {
         visibleActivityCount.incrementAndGet()
@@ -45,6 +54,7 @@ class DayflowCaptureApp : Application(), Configuration.Provider {
       .build()
     pairingStore = PairingStore(this)
     repository = CaptureRepository(this, database.captureDao())
+    applicationScope.launch { repository.cleanup() }
   }
 
   override val workManagerConfiguration: Configuration

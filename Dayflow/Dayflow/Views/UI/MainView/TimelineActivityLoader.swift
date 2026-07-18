@@ -359,4 +359,27 @@ enum TimelineActivityLoader {
     guard windowEnd > windowStart else { return nil }
     return TimelineRecordingProjectionWindow(start: windowStart, end: windowEnd)
   }
+
+  static func recordingProjectionWindows(
+    for timelineDate: Date,
+    displaySegments: [TimelineDisplaySegment],
+    activePlatforms: [CapturePlatform],
+    now: Date = Date()
+  ) -> [CapturePlatform: TimelineRecordingProjectionWindow] {
+    let segmentsByPlatform = Dictionary(grouping: displaySegments) { segment in
+      segment.activity.platform
+    }
+
+    var windows: [CapturePlatform: TimelineRecordingProjectionWindow] = [:]
+    for platform in CapturePlatform.allCases where activePlatforms.contains(platform) {
+      if let window = recordingProjectionWindow(
+        for: timelineDate,
+        displaySegments: segmentsByPlatform[platform] ?? [],
+        now: now
+      ) {
+        windows[platform] = window
+      }
+    }
+    return windows
+  }
 }

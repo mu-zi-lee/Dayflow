@@ -1,6 +1,6 @@
 import Foundation
 
-enum CapturePlatform: String, Codable, CaseIterable, Sendable {
+enum CapturePlatform: String, Codable, CaseIterable, Hashable, Sendable {
   case macOS = "macos"
   case android
 }

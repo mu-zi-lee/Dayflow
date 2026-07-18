@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
-fun QrScannerView(onResult: (String) -> Unit, onClose: () -> Unit) {
+fun QrScannerView(onResult: (String) -> Unit, onClose: () -> Unit, onError: (String) -> Unit) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
   val previewView = remember { PreviewView(context) }
@@ -42,7 +42,10 @@ fun QrScannerView(onResult: (String) -> Unit, onClose: () -> Unit) {
   DisposableEffect(lifecycleOwner) {
     val future = ProcessCameraProvider.getInstance(context)
     future.addListener({
-      val provider = future.get()
+      val provider = runCatching { future.get() }.getOrElse {
+        onError(context.getString(R.string.camera_unavailable))
+        return@addListener
+      }
       val preview = Preview.Builder().build().also {
         it.surfaceProvider = previewView.surfaceProvider
       }
@@ -60,10 +63,19 @@ fun QrScannerView(onResult: (String) -> Unit, onClose: () -> Unit) {
             val value = codes.firstNotNullOfOrNull { it.rawValue }
             if (value != null && delivered.compareAndSet(false, true)) onResult(value)
           }
+          .addOnFailureListener {
+            if (delivered.compareAndSet(false, true)) {
+              onError(context.getString(R.string.qr_scan_failed))
+            }
+          }
           .addOnCompleteListener { proxy.close() }
       }
       provider.unbindAll()
-      provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+      runCatching {
+        provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+      }.onFailure {
+        onError(context.getString(R.string.camera_unavailable))
+      }
     }, ContextCompat.getMainExecutor(context))
 
     onDispose {

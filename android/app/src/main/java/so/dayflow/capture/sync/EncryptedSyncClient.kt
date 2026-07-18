@@ -5,7 +5,6 @@ import java.io.Closeable
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetSocketAddress
-import java.net.Socket
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -20,7 +19,7 @@ class EncryptedSyncClient(
   endpoint: MacEndpoint,
   private val pairing: PairingPayload
 ) : Closeable {
-  private val socket = Socket().apply {
+  private val socket = endpoint.network.socketFactory.createSocket().apply {
     connect(InetSocketAddress(endpoint.host, endpoint.port), 10_000)
     soTimeout = 20_000
     tcpNoDelay = true
@@ -71,4 +70,3 @@ class EncryptedSyncClient(
     const val MAX_FRAME_BYTES = 12 * 1024 * 1024
   }
 }
-

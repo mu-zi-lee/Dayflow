@@ -1,33 +1,27 @@
 package so.dayflow.capture
 
 import android.Manifest
-import android.app.AppOpsManager
-import android.app.NotificationManager
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,15 +29,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Computer
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -62,6 +54,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -72,11 +66,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -85,26 +76,38 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import so.dayflow.capture.capture.CaptureActions
 import so.dayflow.capture.capture.CapturePreferences
+import so.dayflow.capture.capture.CaptureRequirements
 import so.dayflow.capture.capture.CaptureService
 import so.dayflow.capture.capture.CaptureState
 import so.dayflow.capture.capture.ContinuousCaptureAccessibilityService
 import so.dayflow.capture.capture.RecordingState
-import so.dayflow.capture.data.CaptureEntity
+import so.dayflow.capture.sync.SyncPhase
+import so.dayflow.capture.sync.SyncStatus
+
+private enum class MainPage { STATUS, SETTINGS, DIAGNOSTICS }
 
 class MainActivity : ComponentActivity() {
   private var usageAccessGranted by mutableStateOf(false)
   private var batteryUnrestricted by mutableStateOf(false)
   private var notificationsGranted by mutableStateOf(false)
   private var accessibilityGranted by mutableStateOf(false)
+  private var pendingCaptureAction: String? = null
 
-  private val permissionLauncher = registerForActivityResult(
-    ActivityResultContracts.RequestMultiplePermissions()
-  ) { refreshPermissionState() }
+  private val notificationPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    refreshPermissionState()
+    val action = pendingCaptureAction
+    pendingCaptureAction = null
+    if (granted && action != null) startCaptureService(action)
+    if (!granted) {
+      CaptureState.update(RecordingState.ERROR, getString(R.string.notification_required_for_capture))
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     refreshPermissionState()
-    permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.CAMERA))
     setContent {
       DayflowTheme {
         val model: MainViewModel = viewModel()
@@ -114,7 +117,9 @@ class MainActivity : ComponentActivity() {
           batteryUnrestricted = batteryUnrestricted,
           notificationsGranted = notificationsGranted,
           accessibilityGranted = accessibilityGranted,
-          onStart = { requestCapture() },
+          onStart = { action ->
+            requestCapture(model.pairing.value != null, model.pairingVerified.value, action)
+          },
           onAction = { action ->
             val serviceIntent = Intent(this, CaptureService::class.java).setAction(action)
             if (action == CaptureActions.RESUME) {
@@ -136,7 +141,7 @@ class MainActivity : ComponentActivity() {
             )
           },
           onNotificationPermission = {
-            permissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
           }
         )
       }
@@ -163,7 +168,7 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun refreshPermissionState() {
-    usageAccessGranted = hasUsageAccess()
+    usageAccessGranted = CaptureRequirements.hasUsageAccess(this)
     batteryUnrestricted = isBatteryUnrestricted()
     notificationsGranted = ContextCompat.checkSelfPermission(
       this,
@@ -172,28 +177,39 @@ class MainActivity : ComponentActivity() {
     accessibilityGranted = ContinuousCaptureAccessibilityService.isEnabled(this)
   }
 
-  private fun requestCapture() {
-    CapturePreferences.setRecordingDesired(this, true)
-    CapturePreferences.setManuallyPaused(this, false)
+  private fun requestCapture(pairingPresent: Boolean, pairingVerified: Boolean, action: String) {
+    if (!pairingPresent) {
+      CaptureState.update(RecordingState.ERROR, getString(R.string.pairing_required_for_capture))
+      return
+    }
+    if (!pairingVerified) {
+      CaptureState.update(RecordingState.ERROR, getString(R.string.pairing_not_verified))
+      return
+    }
+    if (!CaptureRequirements.hasUsageAccess(this)) {
+      CaptureState.update(RecordingState.ERROR, getString(R.string.usage_access_required_for_privacy))
+      startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+      return
+    }
     if (!ContinuousCaptureAccessibilityService.isEnabled(this)) {
       CaptureState.update(RecordingState.ERROR, getString(R.string.enable_accessibility_service))
       startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
       return
     }
-    ContextCompat.startForegroundService(
-      this,
-      Intent(this, CaptureService::class.java).setAction(CaptureActions.START)
-    )
+    CapturePreferences.setRecordingDesired(this, true)
+    CapturePreferences.setManuallyPaused(this, false)
+    if (!CaptureRequirements.hasNotificationAccess(this)) {
+      pendingCaptureAction = action
+      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+      return
+    }
+    startCaptureService(action)
   }
 
-  private fun hasUsageAccess(): Boolean {
-    val manager = getSystemService(AppOpsManager::class.java)
-    return manager.unsafeCheckOpNoThrow(
-      AppOpsManager.OPSTR_GET_USAGE_STATS,
-      android.os.Process.myUid(),
-      packageName
-    ) == AppOpsManager.MODE_ALLOWED
-  }
+  private fun startCaptureService(action: String) = ContextCompat.startForegroundService(
+    this,
+    Intent(this, CaptureService::class.java).setAction(action)
+  )
 
   private fun isBatteryUnrestricted(): Boolean =
     getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
@@ -206,7 +222,7 @@ private fun DayflowCaptureScreen(
   batteryUnrestricted: Boolean,
   notificationsGranted: Boolean,
   accessibilityGranted: Boolean,
-  onStart: () -> Unit,
+  onStart: (String) -> Unit,
   onAction: (String) -> Unit,
   onAccessibilitySettings: () -> Unit,
   onUsageSettings: () -> Unit,
@@ -215,21 +231,44 @@ private fun DayflowCaptureScreen(
 ) {
   val recording by model.recordingState.collectAsState()
   val message by model.recordingMessage.collectAsState()
+  val lastCaptureAtUTCMS by model.lastCaptureAtUTCMS.collectAsState()
+  val syncStatus by model.syncStatus.collectAsState()
   val pairing by model.pairing.collectAsState()
+  val pairingVerified by model.pairingVerified.collectAsState()
   val pendingCount by model.pendingCount.collectAsState(initial = 0)
   val pendingBytes by model.pendingBytes.collectAsState(initial = 0)
   val pendingImageCount by model.pendingImageCount.collectAsState(initial = 0)
-  val recentImages by model.recentImages.collectAsState(initial = emptyList())
   val blockedApps by model.blockedApps.collectAsState()
   val installedApps by model.installedApps.collectAsState()
   val context = LocalContext.current
-  val clipboardManager = remember(context) {
-    context.getSystemService(ClipboardManager::class.java)
-  }
   var scansQr by remember { mutableStateOf(false) }
   var pairingError by remember { mutableStateOf<String?>(null) }
   var selectsExcludedApps by remember { mutableStateOf(false) }
-  var previewCapture by remember { mutableStateOf<CaptureEntity?>(null) }
+  var confirmsPairingRemoval by remember { mutableStateOf(false) }
+  var confirmsPendingDeletion by remember { mutableStateOf(false) }
+  var confirmsStop by remember { mutableStateOf(false) }
+  var mainPage by remember { mutableStateOf(MainPage.STATUS) }
+  val cameraPermissionLauncher = rememberLauncherForActivityResult(
+    ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    if (granted) {
+      pairingError = null
+      scansQr = true
+    } else {
+      pairingError = context.getString(R.string.camera_required_for_pairing)
+    }
+  }
+  val requestPairingScan = {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+      PackageManager.PERMISSION_GRANTED
+    ) {
+      scansQr = true
+    } else {
+      cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+  }
+  val setupComplete = pairing != null && pairingVerified && usageAccessGranted &&
+    accessibilityGranted && notificationsGranted
 
   if (scansQr) {
     QrScannerView(
@@ -238,7 +277,11 @@ private fun DayflowCaptureScreen(
           .onSuccess { scansQr = false; pairingError = null }
           .onFailure { pairingError = it.message }
       },
-      onClose = { scansQr = false }
+      onClose = { scansQr = false },
+      onError = { error ->
+        pairingError = error
+        scansQr = false
+      }
     )
     return
   }
@@ -249,94 +292,130 @@ private fun DayflowCaptureScreen(
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
       Text(stringResource(R.string.main_title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-      StatusCard(recording, message, pendingCount, pendingBytes)
-
-      Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        when (recording) {
-          RecordingState.STOPPED, RecordingState.ERROR -> PrimaryAction(stringResource(R.string.start_capture), Icons.Rounded.PlayArrow, onStart)
-          RecordingState.RECORDING -> PrimaryAction(stringResource(R.string.pause_capture), Icons.Rounded.Pause) {
-            onAction(CaptureActions.PAUSE)
-          }
-          RecordingState.PAUSED -> PrimaryAction(stringResource(R.string.resume_capture), Icons.Rounded.PlayArrow) {
-            onAction(CaptureActions.RESUME)
-          }
-        }
-        OutlinedButton(onClick = { onAction(CaptureActions.STOP) }, enabled = recording != RecordingState.STOPPED) {
-          Icon(Icons.Rounded.Stop, null)
-          Text(stringResource(R.string.stop_capture), Modifier.padding(start = 6.dp))
+      TabRow(
+        selectedTabIndex = mainPage.ordinal,
+        containerColor = Color.Transparent,
+        divider = {}
+      ) {
+        MainPage.entries.forEach { page ->
+          Tab(
+            selected = mainPage == page,
+            onClick = { mainPage = page },
+            text = {
+              Text(
+                stringResource(
+                  when (page) {
+                    MainPage.STATUS -> R.string.page_status
+                    MainPage.SETTINGS -> R.string.page_settings
+                    MainPage.DIAGNOSTICS -> R.string.page_diagnostics
+                  }
+                )
+              )
+            }
+          )
         }
       }
-
-      SectionCard(stringResource(R.string.upload_storage)) {
-        SettingRow(
-          icon = Icons.Rounded.Folder,
-          title = stringResource(R.string.pending_images, pendingImageCount),
-          detail = model.captureStoragePath
-        )
-        Text(
-          stringResource(R.string.upload_storage_detail),
-          style = MaterialTheme.typography.bodySmall,
-          color = Color(0xFF777773)
-        )
-        if (recentImages.isNotEmpty()) {
-          Text(stringResource(R.string.recent_image_previews), fontWeight = FontWeight.Medium)
-          LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(recentImages, key = { it.captureId }) { capture ->
-              val preview = remember(capture.captureId, capture.filePath) {
-                decodePreview(capture.filePath, 320)
-              }
-              Column(
-                modifier = Modifier.clickable(enabled = preview != null) {
-                  previewCapture = capture
-                },
-                horizontalAlignment = Alignment.CenterHorizontally
-              ) {
-                if (preview != null) {
-                  Image(
-                    bitmap = preview,
-                    contentDescription = capture.foregroundAppName,
-                    modifier = Modifier.size(width = 104.dp, height = 164.dp)
-                      .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                  )
-                }
-                Text(
-                  capture.foregroundAppName ?: capture.foregroundAppId
-                    ?: stringResource(R.string.unknown_app),
-                  style = MaterialTheme.typography.bodySmall,
-                  modifier = Modifier.padding(top = 4.dp)
-                )
-              }
+      if (!setupComplete) {
+        SectionCard(stringResource(R.string.finish_setup)) {
+          Text(stringResource(R.string.finish_setup_detail), style = MaterialTheme.typography.bodySmall)
+          if (pairing == null) {
+            Button(onClick = requestPairingScan) {
+              Icon(Icons.Rounded.QrCodeScanner, null)
+              Text(stringResource(R.string.pair_mac), Modifier.padding(start = 6.dp))
+            }
+          } else if (!pairingVerified) {
+            Text(stringResource(R.string.verifying_mac), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = model::syncNow) {
+              Icon(Icons.Rounded.Refresh, null)
+              Text(stringResource(R.string.retry_verification), Modifier.padding(start = 6.dp))
+            }
+          } else if (!usageAccessGranted) {
+            SetupStep(
+              number = 2,
+              title = stringResource(R.string.usage_access),
+              detail = stringResource(R.string.usage_access_setup_detail),
+              action = onUsageSettings
+            )
+          } else if (!accessibilityGranted) {
+            SetupStep(
+              number = 3,
+              title = stringResource(R.string.continuous_capture_access),
+              detail = stringResource(R.string.accessibility_setup_detail),
+              action = onAccessibilitySettings
+            )
+          } else if (!notificationsGranted) {
+            SetupStep(
+              number = 4,
+              title = stringResource(R.string.notifications),
+              detail = stringResource(R.string.notification_setup_detail),
+              action = onNotificationPermission
+            )
+          }
+        }
+      }
+      if (mainPage == MainPage.STATUS) {
+        StatusCard(recording, message, pendingCount, pendingBytes, lastCaptureAtUTCMS)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+          when (recording) {
+            RecordingState.STOPPED, RecordingState.ERROR -> PrimaryAction(stringResource(R.string.start_capture), Icons.Rounded.PlayArrow) {
+              onStart(CaptureActions.START)
+            }
+            RecordingState.RECORDING -> PrimaryAction(stringResource(R.string.pause_capture), Icons.Rounded.Pause) {
+              onAction(CaptureActions.PAUSE)
+            }
+            RecordingState.PAUSED -> PrimaryAction(stringResource(R.string.resume_capture), Icons.Rounded.PlayArrow) {
+              onStart(CaptureActions.RESUME)
             }
           }
+          OutlinedButton(onClick = { confirmsStop = true }, enabled = recording != RecordingState.STOPPED) {
+            Icon(Icons.Rounded.Stop, null)
+            Text(stringResource(R.string.stop_capture), Modifier.padding(start = 6.dp))
+          }
         }
-        OutlinedButton(onClick = {
-          clipboardManager.setPrimaryClip(
-            ClipData.newPlainText(context.getString(R.string.upload_storage), model.captureStoragePath)
+        SectionCard(stringResource(R.string.sync_summary)) {
+          SettingRow(
+            icon = Icons.Rounded.CloudDone,
+            title = stringResource(R.string.pending_images, pendingImageCount),
+            detail = stringResource(R.string.queue_status, pendingCount, formatBytes(pendingBytes))
           )
-        }) {
-          Icon(Icons.Rounded.ContentCopy, null)
-          Text(stringResource(R.string.copy_path), Modifier.padding(start = 6.dp))
+          SyncStatusRow(syncStatus)
+        }
+        SectionCard(stringResource(R.string.privacy)) {
+          SettingRow(
+            icon = Icons.Rounded.Security,
+            title = stringResource(R.string.excluded_apps_count, blockedApps.size),
+            detail = stringResource(R.string.privacy_summary_detail)
+          )
+          TextButton(onClick = { mainPage = MainPage.SETTINGS }) {
+            Text(stringResource(R.string.manage_privacy))
+          }
         }
       }
 
-      SectionCard(stringResource(R.string.mac_connection)) {
+      if (mainPage == MainPage.SETTINGS) SectionCard(stringResource(R.string.mac_connection)) {
         SettingRow(
           icon = Icons.Rounded.Computer,
           title = pairing?.serviceName ?: stringResource(R.string.no_mac_paired),
-          detail = if (pairing == null) stringResource(R.string.scan_mac_code) else stringResource(R.string.encrypted_sync_enabled)
+          detail = if (pairing == null) {
+            stringResource(R.string.scan_mac_code)
+          } else {
+            syncStatusDetail(syncStatus)
+          }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-          Button(onClick = { scansQr = true }) {
+          Button(onClick = requestPairingScan) {
             Icon(Icons.Rounded.QrCodeScanner, null)
             Text(if (pairing == null) stringResource(R.string.pair_mac) else stringResource(R.string.pair_again), Modifier.padding(start = 6.dp))
           }
-          OutlinedButton(onClick = model::syncNow, enabled = pairing != null) {
+          OutlinedButton(
+            onClick = model::syncNow,
+            enabled = pairing != null && syncStatus.phase != SyncPhase.CONNECTING && syncStatus.phase != SyncPhase.SYNCING
+          ) {
             Icon(Icons.Rounded.Refresh, null)
             Text(stringResource(R.string.sync_now), Modifier.padding(start = 6.dp))
           }
           if (pairing != null) {
-            IconButton(onClick = model::clearPairing) {
+            IconButton(onClick = { confirmsPairingRemoval = true }) {
               Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.remove_pairing))
             }
           }
@@ -344,7 +423,7 @@ private fun DayflowCaptureScreen(
         pairingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
       }
 
-      SectionCard(stringResource(R.string.device_access)) {
+      if (mainPage == MainPage.SETTINGS) SectionCard(stringResource(R.string.device_access)) {
         PermissionRow(
           stringResource(R.string.continuous_capture_access),
           accessibilityGranted,
@@ -361,7 +440,7 @@ private fun DayflowCaptureScreen(
         )
       }
 
-      SectionCard(stringResource(R.string.privacy)) {
+      if (mainPage == MainPage.SETTINGS) SectionCard(stringResource(R.string.privacy)) {
         SettingRow(
           icon = Icons.Rounded.Security,
           title = stringResource(R.string.excluded_apps),
@@ -394,6 +473,36 @@ private fun DayflowCaptureScreen(
           Text(stringResource(R.string.select_apps), Modifier.padding(start = 6.dp))
         }
       }
+
+      if (mainPage == MainPage.DIAGNOSTICS) {
+        SectionCard(stringResource(R.string.upload_storage)) {
+          SettingRow(
+            icon = Icons.Rounded.CloudDone,
+            title = stringResource(R.string.pending_images, pendingImageCount),
+            detail = stringResource(R.string.queue_status, pendingCount, formatBytes(pendingBytes))
+          )
+          Text(
+            stringResource(R.string.upload_storage_detail),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF777773)
+          )
+          SyncStatusRow(syncStatus)
+          OutlinedButton(
+            onClick = model::syncNow,
+            enabled = pairing != null && syncStatus.phase != SyncPhase.CONNECTING &&
+              syncStatus.phase != SyncPhase.SYNCING
+          ) {
+            Icon(Icons.Rounded.Refresh, null)
+            Text(stringResource(R.string.sync_now), Modifier.padding(start = 6.dp))
+          }
+          if (pendingCount > 0) {
+            TextButton(onClick = { confirmsPendingDeletion = true }) {
+              Icon(Icons.Rounded.DeleteOutline, null)
+              Text(stringResource(R.string.delete_pending), Modifier.padding(start = 6.dp))
+            }
+          }
+        }
+      }
     }
   }
 
@@ -407,19 +516,32 @@ private fun DayflowCaptureScreen(
         } else {
           LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp)) {
             items(installedApps, key = { it.packageName }) { app ->
-              val excluded = blockedApps.contains(app.packageName)
+              val exactExclusion = blockedApps.contains(app.packageName)
+              val automaticExclusion = blockedApps.any { rule ->
+                rule != app.packageName && (
+                  app.packageName.contains(rule, ignoreCase = true) ||
+                    app.label.contains(rule, ignoreCase = true)
+                  )
+              }
+              val excluded = exactExclusion || automaticExclusion
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .clickable { model.setAppExcluded(app.packageName, !excluded) }
+                  .clickable(enabled = !automaticExclusion) {
+                    model.setAppExcluded(app.packageName, !exactExclusion)
+                  }
                   .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Checkbox(checked = excluded, onCheckedChange = null)
+                Checkbox(checked = excluded, onCheckedChange = null, enabled = !automaticExclusion)
                 Column(Modifier.padding(start = 8.dp)) {
                   Text(app.label, fontWeight = FontWeight.Medium)
                   Text(
-                    app.packageName,
+                    if (automaticExclusion) {
+                      stringResource(R.string.automatic_protection)
+                    } else {
+                      app.packageName
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF777773)
                   )
@@ -437,52 +559,68 @@ private fun DayflowCaptureScreen(
     )
   }
 
-  previewCapture?.let { capture ->
-    val preview = remember(capture.captureId, capture.filePath) {
-      decodePreview(capture.filePath, 1200)
-    }
+  if (confirmsPairingRemoval) {
     AlertDialog(
-      onDismissRequest = { previewCapture = null },
-      title = { Text(capture.foregroundAppName ?: stringResource(R.string.image_preview)) },
-      text = {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          if (preview != null) {
-            Image(
-              bitmap = preview,
-              contentDescription = capture.foregroundAppName,
-              modifier = Modifier.fillMaxWidth().height(520.dp),
-              contentScale = ContentScale.Fit
-            )
-          }
-          Text(capture.filePath, style = MaterialTheme.typography.bodySmall)
+      onDismissRequest = { confirmsPairingRemoval = false },
+      title = { Text(stringResource(R.string.remove_pairing_title)) },
+      text = { Text(stringResource(R.string.remove_pairing_warning, pendingCount, formatBytes(pendingBytes))) },
+      confirmButton = {
+        TextButton(onClick = {
+          model.clearPairing()
+          confirmsPairingRemoval = false
+        }) {
+          Text(stringResource(R.string.remove_pairing))
         }
       },
+      dismissButton = {
+        TextButton(onClick = { confirmsPairingRemoval = false }) { Text(stringResource(R.string.cancel)) }
+      }
+    )
+  }
+
+  if (confirmsPendingDeletion) {
+    AlertDialog(
+      onDismissRequest = { confirmsPendingDeletion = false },
+      title = { Text(stringResource(R.string.delete_pending_title)) },
+      text = { Text(stringResource(R.string.delete_pending_warning, pendingCount, formatBytes(pendingBytes))) },
       confirmButton = {
-        TextButton(onClick = { previewCapture = null }) {
-          Text(stringResource(R.string.close_preview))
-        }
+        TextButton(onClick = {
+          model.deletePending()
+          confirmsPendingDeletion = false
+        }) { Text(stringResource(R.string.delete_pending)) }
+      },
+      dismissButton = {
+        TextButton(onClick = { confirmsPendingDeletion = false }) { Text(stringResource(R.string.cancel)) }
+      }
+    )
+  }
+
+  if (confirmsStop) {
+    AlertDialog(
+      onDismissRequest = { confirmsStop = false },
+      title = { Text(stringResource(R.string.stop_capture_title)) },
+      text = { Text(stringResource(R.string.stop_capture_warning)) },
+      confirmButton = {
+        TextButton(onClick = {
+          onAction(CaptureActions.STOP)
+          confirmsStop = false
+        }) { Text(stringResource(R.string.stop_capture)) }
+      },
+      dismissButton = {
+        TextButton(onClick = { confirmsStop = false }) { Text(stringResource(R.string.cancel)) }
       }
     )
   }
 }
 
-private fun decodePreview(path: String, maxDimension: Int) = runCatching {
-  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-  BitmapFactory.decodeFile(path, bounds)
-  if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
-
-  var sampleSize = 1
-  while (maxOf(bounds.outWidth, bounds.outHeight) / sampleSize > maxDimension * 2) {
-    sampleSize *= 2
-  }
-  BitmapFactory.decodeFile(
-    path,
-    BitmapFactory.Options().apply { inSampleSize = sampleSize }
-  )?.asImageBitmap()
-}.getOrNull()
-
 @Composable
-private fun StatusCard(state: RecordingState, message: String?, count: Int, bytes: Long) {
+private fun StatusCard(
+  state: RecordingState,
+  message: String?,
+  count: Int,
+  bytes: Long,
+  lastCaptureAtUTCMS: Long?
+) {
   val color = when (state) {
     RecordingState.RECORDING -> Color(0xFF2C8B57)
     RecordingState.PAUSED -> Color(0xFFD17922)
@@ -504,7 +642,10 @@ private fun StatusCard(state: RecordingState, message: String?, count: Int, byte
           ),
           fontWeight = FontWeight.SemiBold
         )
-        message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = color) }
+        val detail = message ?: lastCaptureAtUTCMS?.let {
+          stringResource(R.string.last_capture_at, relativeTime(it))
+        }
+        detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = color) }
       }
       Text(stringResource(R.string.queue_status, count, formatBytes(bytes)), style = MaterialTheme.typography.bodySmall)
     }
@@ -551,6 +692,23 @@ private fun PermissionRow(
 }
 
 @Composable
+private fun SetupStep(number: Int, title: String, detail: String, action: () -> Unit) {
+  Row(verticalAlignment = Alignment.Top) {
+    Box(
+      modifier = Modifier.size(28.dp).background(Color(0xFFF96E00), RoundedCornerShape(6.dp)),
+      contentAlignment = Alignment.Center
+    ) {
+      Text(number.toString(), color = Color.White, fontWeight = FontWeight.SemiBold)
+    }
+    Column(Modifier.padding(start = 10.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Text(title, fontWeight = FontWeight.SemiBold)
+      Text(detail, style = MaterialTheme.typography.bodySmall, color = Color(0xFF777773))
+      OutlinedButton(onClick = action) { Text(stringResource(R.string.continue_setup)) }
+    }
+  }
+}
+
+@Composable
 private fun PrimaryAction(label: String, icon: ImageVector, action: () -> Unit) {
   Button(
     onClick = action,
@@ -560,6 +718,42 @@ private fun PrimaryAction(label: String, icon: ImageVector, action: () -> Unit) 
     Text(label, Modifier.padding(start = 6.dp))
   }
 }
+
+@Composable
+private fun SyncStatusRow(status: SyncStatus) {
+  val detail = when (status.phase) {
+    SyncPhase.IDLE -> status.lastSuccessAtUTCMS?.let {
+      stringResource(R.string.last_sync_at, relativeTime(it))
+    } ?: stringResource(R.string.sync_not_completed)
+    SyncPhase.WAITING_FOR_MAC -> stringResource(R.string.sync_waiting_for_mac)
+    SyncPhase.CONNECTING -> stringResource(R.string.sync_connecting)
+    SyncPhase.SYNCING -> stringResource(R.string.sync_progress, status.completed, status.total)
+    SyncPhase.ERROR -> status.error ?: stringResource(R.string.sync_failed)
+  }
+  Text(
+    detail,
+    style = MaterialTheme.typography.bodySmall,
+    color = if (status.phase == SyncPhase.ERROR) MaterialTheme.colorScheme.error else Color(0xFF777773)
+  )
+}
+
+@Composable
+private fun syncStatusDetail(status: SyncStatus): String = when (status.phase) {
+  SyncPhase.IDLE -> status.lastSuccessAtUTCMS?.let {
+    stringResource(R.string.last_sync_at, relativeTime(it))
+  } ?: stringResource(R.string.encrypted_sync_enabled)
+  SyncPhase.WAITING_FOR_MAC -> stringResource(R.string.sync_waiting_for_mac)
+  SyncPhase.CONNECTING -> stringResource(R.string.sync_connecting)
+  SyncPhase.SYNCING -> stringResource(R.string.sync_progress, status.completed, status.total)
+  SyncPhase.ERROR -> status.error ?: stringResource(R.string.sync_failed)
+}
+
+private fun relativeTime(timeUTCMS: Long): String = DateUtils.getRelativeTimeSpanString(
+  timeUTCMS,
+  System.currentTimeMillis(),
+  DateUtils.SECOND_IN_MILLIS,
+  DateUtils.FORMAT_ABBREV_RELATIVE
+).toString()
 
 private fun formatBytes(bytes: Long): String = when {
   bytes >= 1_000_000_000 -> "%.1f GB".format(bytes / 1_000_000_000.0)

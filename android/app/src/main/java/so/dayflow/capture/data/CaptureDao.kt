@@ -12,10 +12,13 @@ interface CaptureDao {
   suspend fun insert(capture: CaptureEntity): Long
 
   @Query("SELECT * FROM captures WHERE state != 'acknowledged' ORDER BY capturedAtUTCMS ASC LIMIT :limit")
-  suspend fun pending(limit: Int = 500): List<CaptureEntity>
+  suspend fun pending(limit: Int = 2_000): List<CaptureEntity>
 
   @Query("SELECT COUNT(*) FROM captures WHERE state != 'acknowledged'")
   fun pendingCount(): Flow<Int>
+
+  @Query("SELECT COUNT(*) FROM captures WHERE state != 'acknowledged'")
+  suspend fun pendingCountNow(): Int
 
   @Query("SELECT COALESCE(SUM(byteLength), 0) FROM captures WHERE state != 'acknowledged'")
   fun pendingBytes(): Flow<Long>
@@ -53,4 +56,15 @@ interface CaptureDao {
 
   @Query("DELETE FROM captures WHERE captureId IN (:ids)")
   suspend fun delete(ids: List<String>)
+
+  @Query("SELECT COUNT(*) FROM captures WHERE captureId = :id")
+  suspend fun countById(id: String): Int
+
+  @Query("""
+    SELECT * FROM captures
+    WHERE state != 'acknowledged' AND capturedAtUTCMS <= :cutoff
+    ORDER BY capturedAtUTCMS ASC
+    LIMIT :limit
+  """)
+  suspend fun pendingForDeletion(cutoff: Long, limit: Int = 200): List<CaptureEntity>
 }

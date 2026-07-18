@@ -1,6 +1,9 @@
 package so.dayflow.capture.sync
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
@@ -16,31 +19,38 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import so.dayflow.capture.data.PairingPayload
 
-data class MacEndpoint(val host: InetAddress, val port: Int)
+data class MacEndpoint(val host: InetAddress, val port: Int, val network: Network)
 
 class MacDiscovery(private val context: Context) {
   private val nsd = context.getSystemService(NsdManager::class.java)
   private val wifi = context.applicationContext.getSystemService(WifiManager::class.java)
+  private val connectivity = context.getSystemService(ConnectivityManager::class.java)
 
   suspend fun find(pairing: PairingPayload): MacEndpoint? {
-    directEndpoint(pairing)?.let { return it }
-    return discover(pairing)
+    val wifiNetwork = connectivity.allNetworks.firstOrNull { network ->
+      connectivity.getNetworkCapabilities(network)
+        ?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+    } ?: return null
+    directEndpoint(pairing, wifiNetwork)?.let { return it }
+    return discover(pairing, wifiNetwork)
   }
 
-  private suspend fun directEndpoint(pairing: PairingPayload): MacEndpoint? =
+  private suspend fun directEndpoint(pairing: PairingPayload, network: Network): MacEndpoint? =
     withContext(Dispatchers.IO) {
       if (pairing.port !in 1..65_535) return@withContext null
       pairing.hostAddresses.firstNotNullOfOrNull { rawHost ->
         runCatching {
           val address = InetAddress.getByName(rawHost)
-          Socket().use { it.connect(InetSocketAddress(address, pairing.port), 1_000) }
-          MacEndpoint(address, pairing.port)
+          network.socketFactory.createSocket().use {
+            it.connect(InetSocketAddress(address, pairing.port), 1_000)
+          }
+          MacEndpoint(address, pairing.port, network)
         }.getOrNull()
       }
     }
 
   @Suppress("DEPRECATION")
-  private suspend fun discover(pairing: PairingPayload): MacEndpoint? = withTimeoutOrNull(8_000) {
+  private suspend fun discover(pairing: PairingPayload, network: Network): MacEndpoint? = withTimeoutOrNull(8_000) {
     suspendCancellableCoroutine { continuation ->
       val multicastLock = wifi.createMulticastLock("dayflow-mdns").apply {
         setReferenceCounted(false)
@@ -69,7 +79,7 @@ class MacDiscovery(private val context: Context) {
             override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
             override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
               val host = serviceInfo.host ?: return
-              finish(MacEndpoint(host, serviceInfo.port))
+              finish(MacEndpoint(host, serviceInfo.port, network))
             }
           })
         }

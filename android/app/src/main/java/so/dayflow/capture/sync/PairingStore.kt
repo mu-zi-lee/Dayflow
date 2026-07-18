@@ -19,6 +19,8 @@ class PairingStore(private val context: Context) {
   private val json = Json { ignoreUnknownKeys = true }
   private val _pairing = MutableStateFlow(load())
   val pairing: StateFlow<PairingPayload?> = _pairing
+  private val _verified = MutableStateFlow(preferences.getBoolean("verified", false))
+  val verified: StateFlow<Boolean> = _verified
 
   fun save(rawJson: String): PairingPayload {
     val payload = json.decodeFromString<PairingPayload>(rawJson)
@@ -31,14 +33,22 @@ class PairingStore(private val context: Context) {
     preferences.edit()
       .putString("nonce", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
       .putString("payload", Base64.encodeToString(encrypted, Base64.NO_WRAP))
+      .putBoolean("verified", false)
       .apply()
     _pairing.value = payload
+    _verified.value = false
     return payload
+  }
+
+  fun markVerified() {
+    preferences.edit().putBoolean("verified", true).apply()
+    _verified.value = true
   }
 
   fun clear() {
     preferences.edit().clear().apply()
     _pairing.value = null
+    _verified.value = false
   }
 
   private fun load(): PairingPayload? = runCatching {

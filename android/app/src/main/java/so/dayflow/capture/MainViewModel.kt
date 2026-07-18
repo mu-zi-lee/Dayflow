@@ -2,7 +2,6 @@ package so.dayflow.capture
 
 import android.app.Application
 import android.content.Intent
-import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +11,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import so.dayflow.capture.capture.CaptureState
 import so.dayflow.capture.capture.PrivacyPreferences
+import so.dayflow.capture.sync.SyncStatusStore
+import so.dayflow.capture.sync.SyncPhase
 
 data class InstalledAppOption(val packageName: String, val label: String)
 
@@ -23,12 +24,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
   val recordingState = CaptureState.state
   val recordingMessage = CaptureState.message
+  val lastCaptureAtUTCMS = CaptureState.lastCaptureAtUTCMS
+  val syncStatus = SyncStatusStore.status
   val pairing = app.pairingStore.pairing
+  val pairingVerified = app.pairingStore.verified
   val pendingCount = app.repository.pendingCount
   val pendingBytes = app.repository.pendingBytes
   val pendingImageCount = app.repository.pendingImageCount
-  val recentImages = app.repository.recentImages
-  val captureStoragePath = File(application.filesDir, "captures").absolutePath
   val blockedApps = _blockedApps.asStateFlow()
   val installedApps = _installedApps.asStateFlow()
 
@@ -43,6 +45,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
   fun clearPairing() = app.pairingStore.clear()
   fun syncNow() = app.repository.scheduleSync(force = true)
+
+  fun deletePending() {
+    viewModelScope.launch(Dispatchers.IO) {
+      app.repository.deletePending()
+      SyncStatusStore.update(SyncPhase.IDLE)
+    }
+  }
 
   fun addBlockedApp(value: String) {
     val normalized = value.trim()

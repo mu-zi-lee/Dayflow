@@ -74,6 +74,8 @@ struct CanvasTimelineDataView: View {
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
+  @State private var recordingProjectionsByPlatform: [CapturePlatform:
+    TimelineRecordingProjectionWindow] = [:]
   @State private var cardsLayerFrame: CGRect = .zero
   @State private var refreshTimer: Timer?
   @State private var didInitialScrollInView: Bool = false
@@ -426,57 +428,108 @@ struct CanvasTimelineDataView: View {
 
   @ViewBuilder
   private var currentTimeIndicator: some View {
-    if timelineIsToday(selectedDate), let projection = recordingProjection {
+    if timelineIsToday(selectedDate) {
       switch recordingControlMode {
       case .active:
-        let projectionHeight = recordingProjectionHeight(for: projection)
-        let isCompactProjection = projectionHeight < 24
-        timelineStatusCard(
-          height: projectionHeight,
-          yPosition: calculateYPosition(for: projection.start) + 1,
-          gradient: recordingStatusGradient,
-          gradientOpacity: 0.70,
-          baseColor: Color(hex: "D9C6BA"),
-          strokeColor: Color.white.opacity(0.52),
-          strokeWidth: 0.75,
-          shadowColor: .black.opacity(0.10),
-          shadowRadius: 4
-        ) {
-          if !isCompactProjection {
-            generatingStatusText
+        recordingStatusCardsByPlatform
+      case .pausedTimed, .pausedIndefinite:
+        if let projection = recordingProjection {
+          let projectionHeight = recordingProjectionHeight(for: projection)
+          timelineStatusCard(
+            height: projectionHeight,
+            yPosition: calculateYPosition(for: projection.start) + 1,
+            gradient: pausedStatusGradient,
+            gradientOpacity: 1.0,
+            baseColor: .clear,
+            strokeColor: .white,
+            strokeWidth: 1,
+            shadowColor: .black.opacity(0.03),
+            shadowRadius: 2,
+            onTap: handlePausedStatusCardTap
+          ) {
+            pausedStatusText
           }
         }
-      case .pausedTimed, .pausedIndefinite:
-        let projectionHeight = recordingProjectionHeight(for: projection)
-        timelineStatusCard(
-          height: projectionHeight,
-          yPosition: calculateYPosition(for: projection.start) + 1,
-          gradient: pausedStatusGradient,
-          gradientOpacity: 1.0,
-          baseColor: .clear,
-          strokeColor: .white,
-          strokeWidth: 1,
-          shadowColor: .black.opacity(0.03),
-          shadowRadius: 2,
-          onTap: handlePausedStatusCardTap
-        ) {
-          pausedStatusText
-        }
       case .stopped:
-        let projectionHeight = recordingProjectionHeight(for: projection)
-        timelineStatusCard(
-          height: projectionHeight,
-          yPosition: calculateYPosition(for: projection.start) + 1,
-          gradient: pausedStatusGradient,
-          gradientOpacity: 1.0,
-          baseColor: .clear,
-          strokeColor: .white,
-          strokeWidth: 1,
-          shadowColor: .black.opacity(0.03),
-          shadowRadius: 2,
-          onTap: handlePausedStatusCardTap
-        ) {
-          stoppedStatusText
+        if let projection = recordingProjection {
+          let projectionHeight = recordingProjectionHeight(for: projection)
+          timelineStatusCard(
+            height: projectionHeight,
+            yPosition: calculateYPosition(for: projection.start) + 1,
+            gradient: pausedStatusGradient,
+            gradientOpacity: 1.0,
+            baseColor: .clear,
+            strokeColor: .white,
+            strokeWidth: 1,
+            shadowColor: .black.opacity(0.03),
+            shadowRadius: 2,
+            onTap: handlePausedStatusCardTap
+          ) {
+            stoppedStatusText
+          }
+        }
+      }
+    }
+  }
+
+  private var recordingStatusCardsByPlatform: some View {
+    GeometryReader { geometry in
+      let metrics = statusLaneMetrics(totalWidth: geometry.size.width)
+      ZStack(alignment: .topLeading) {
+        recordingStatusCard(
+          for: .macOS,
+          laneX: metrics.macLaneX,
+          laneWidth: metrics.laneWidth
+        )
+        recordingStatusCard(
+          for: .android,
+          laneX: metrics.androidLaneX,
+          laneWidth: metrics.laneWidth
+        )
+      }
+    }
+    .allowsHitTesting(false)
+  }
+
+  private func statusLaneMetrics(totalWidth: CGFloat) -> (
+    laneWidth: CGFloat,
+    macLaneX: CGFloat,
+    androidLaneX: CGFloat
+  ) {
+    let dividerWidth: CGFloat = 1
+    let lanesWidth = max(0, totalWidth - CanvasConfig.timeColumnWidth - dividerWidth)
+    let laneWidth = lanesWidth / 2
+    return (
+      laneWidth: laneWidth,
+      macLaneX: CanvasConfig.timeColumnWidth,
+      androidLaneX: CanvasConfig.timeColumnWidth + laneWidth + dividerWidth
+    )
+  }
+
+  @ViewBuilder
+  private func recordingStatusCard(
+    for platform: CapturePlatform,
+    laneX: CGFloat,
+    laneWidth: CGFloat
+  ) -> some View {
+    if let projection = recordingProjectionsByPlatform[platform], laneWidth > 0 {
+      let projectionHeight = recordingProjectionHeight(for: projection)
+      let isCompactProjection = projectionHeight < 24
+      timelineLaneStatusCard(
+        width: laneWidth,
+        height: projectionHeight,
+        xPosition: laneX,
+        yPosition: calculateYPosition(for: projection.start) + 1,
+        gradient: recordingStatusGradient,
+        gradientOpacity: 0.70,
+        baseColor: Color(hex: "D9C6BA"),
+        strokeColor: Color.white.opacity(0.52),
+        strokeWidth: 0.75,
+        shadowColor: .black.opacity(0.10),
+        shadowRadius: 4
+      ) {
+        if !isCompactProjection {
+          generatingStatusText
         }
       }
     }
@@ -532,6 +585,49 @@ struct CanvasTimelineDataView: View {
       onTap?()
     }
     .allowsHitTesting(onTap != nil)
+  }
+
+  private func timelineLaneStatusCard<Content: View>(
+    width: CGFloat,
+    height: CGFloat,
+    xPosition: CGFloat,
+    yPosition: CGFloat,
+    gradient: LinearGradient,
+    gradientOpacity: Double,
+    baseColor: Color,
+    strokeColor: Color,
+    strokeWidth: CGFloat,
+    shadowColor: Color,
+    shadowRadius: CGFloat,
+    @ViewBuilder content: () -> Content
+  ) -> some View {
+    HStack(spacing: 0) {
+      content()
+      Spacer(minLength: 0)
+    }
+    .padding(.horizontal, 12)
+    .frame(
+      width: max(0, width - 12),
+      height: height,
+      alignment: .leading
+    )
+    .background(
+      RoundedRectangle(cornerRadius: 3, style: .continuous)
+        .fill(baseColor)
+        .overlay(
+          RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(gradient)
+            .opacity(gradientOpacity)
+        )
+    )
+    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+    .overlay(
+      RoundedRectangle(cornerRadius: 3, style: .continuous)
+        .inset(by: 0.375)
+        .stroke(strokeColor, lineWidth: strokeWidth)
+    )
+    .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: 0)
+    .offset(x: xPosition + 6, y: yPosition)
   }
 
   private var recordingStatusGradient: LinearGradient {
@@ -677,10 +773,26 @@ struct CanvasTimelineDataView: View {
         .values
         .flatMap { TimelineActivityLoader.resolveDisplaySegments(from: $0) }
         .sorted { $0.start < $1.start }
+      let now = Date()
       let recordingProjection = TimelineActivityLoader.recordingProjectionWindow(
         for: payload.timelineDate,
         displaySegments: segments,
-        now: Date()
+        now: now
+      )
+      let dayInfo = payload.timelineDate.getDayInfoFor4AMBoundary()
+      let dayScreenshots = StorageManager.shared.fetchScreenshotsInTimeRange(
+        startTs: Int(dayInfo.startOfDay.timeIntervalSince1970),
+        endTs: Int(dayInfo.endOfDay.timeIntervalSince1970)
+      )
+      let hasAndroidActivity = payload.activities.contains { $0.platform == .android }
+      let hasAndroidCapture = dayScreenshots.contains { $0.platform == .android }
+      let activeProjectionPlatforms: [CapturePlatform] =
+        (hasAndroidActivity || hasAndroidCapture) ? [.macOS, .android] : [.macOS]
+      let recordingProjectionsByPlatform = TimelineActivityLoader.recordingProjectionWindows(
+        for: payload.timelineDate,
+        displaySegments: segments,
+        activePlatforms: activeProjectionPlatforms,
+        now: now
       )
 
       let positioned = segments.map { seg -> CanvasPositionedActivity in
@@ -735,6 +847,7 @@ struct CanvasTimelineDataView: View {
         }
         self.positionedActivities = positioned
         self.recordingProjection = recordingProjection
+        self.recordingProjectionsByPlatform = recordingProjectionsByPlatform
         self.hasAnyActivities = !positioned.isEmpty
         if let selectedActivity,
           !positioned.contains(where: { $0.activity.id == selectedActivity.id })

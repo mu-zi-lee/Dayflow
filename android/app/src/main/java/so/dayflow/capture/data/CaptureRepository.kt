@@ -12,6 +12,8 @@ import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import so.dayflow.capture.sync.SyncWorker
 
@@ -19,6 +21,7 @@ class CaptureRepository(
   private val context: Context,
   private val dao: CaptureDao
 ) {
+  private val syncMutationMutex = Mutex()
   val pendingCount = dao.pendingCount()
   val pendingBytes = dao.pendingBytes()
   val pendingImageCount = dao.pendingImageCount()
@@ -103,19 +106,50 @@ class CaptureRepository(
     if (!force) builder.setInitialDelay(2, TimeUnit.SECONDS)
     val request = builder.build()
     WorkManager.getInstance(context).enqueueUniqueWork(
-      "dayflow-sync",
+      SYNC_WORK_NAME,
       if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
       request
     )
   }
 
+  suspend fun acknowledgeAndCleanup(capture: CaptureEntity) = withContext(Dispatchers.IO) {
+    val now = System.currentTimeMillis()
+    dao.acknowledge(capture.captureId, now, now)
+    deleteAcknowledged(capture)
+  }
+
+  suspend fun pendingCountNow(): Int = withContext(Dispatchers.IO) {
+    dao.pendingCountNow()
+  }
+
+  suspend fun deletePending() = syncMutationMutex.withLock {
+    withContext(Dispatchers.IO) {
+      WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME).result.get()
+      val cutoff = System.currentTimeMillis()
+      while (true) {
+        val batch = dao.pendingForDeletion(cutoff)
+        if (batch.isEmpty()) break
+        val removable = batch.filter { capture ->
+          if (capture.filePath.isBlank()) {
+            true
+          } else {
+            val file = File(capture.filePath)
+            !file.exists() || file.delete()
+          }
+        }
+        if (removable.isNotEmpty()) dao.delete(removable.map { it.captureId })
+        if (removable.size < batch.size) break
+      }
+    }
+  }
+
+  suspend fun <T> withSyncMutation(block: suspend () -> T): T =
+    syncMutationMutex.withLock { block() }
+
   suspend fun cleanup() = withContext(Dispatchers.IO) {
     val now = System.currentTimeMillis()
     val acknowledged = dao.expiredAcknowledged(now)
-    acknowledged.forEach { capture ->
-      if (capture.filePath.isNotBlank()) File(capture.filePath).delete()
-    }
-    if (acknowledged.isNotEmpty()) dao.delete(acknowledged.map { it.captureId })
+    acknowledged.forEach { deleteAcknowledged(it) }
 
     val sevenDaysAgo = now - TimeUnit.DAYS.toMillis(7)
     val stale = dao.expiredPending(sevenDaysAgo)
@@ -124,9 +158,23 @@ class CaptureRepository(
     }
   }
 
+  private suspend fun deleteAcknowledged(capture: CaptureEntity) {
+    val deleted = if (capture.filePath.isBlank()) {
+      true
+    } else {
+      val file = File(capture.filePath)
+      !file.exists() || file.delete()
+    }
+    if (deleted) dao.delete(listOf(capture.captureId))
+  }
+
   private fun ByteArray.sha256(): String = MessageDigest.getInstance("SHA-256")
     .digest(this)
     .joinToString("") { "%02x".format(it) }
+
+  private companion object {
+    const val SYNC_WORK_NAME = "dayflow-sync"
+  }
 }
 
 object DeviceIdentity {

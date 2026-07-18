@@ -41,4 +41,29 @@ class CapturePauseStateTest {
     assertFalse(state.isPaused)
     assertEquals(null, state.primaryReason())
   }
+
+  @Test
+  fun privacyRequirementTakesPriorityOverCapacityAndUserPause() {
+    val state = CapturePauseState()
+    state.set(CapturePauseReason.USER, true)
+    state.set(CapturePauseReason.QUEUE_FULL, true)
+    state.set(CapturePauseReason.USAGE_ACCESS_MISSING, true)
+
+    assertEquals(CapturePauseReason.USAGE_ACCESS_MISSING, state.primaryReason())
+  }
+
+  @Test
+  fun recoveredConditionsClearWithoutRemovingManualPause() {
+    val state = CapturePauseState()
+    state.set(CapturePauseReason.USER, true)
+    state.set(CapturePauseReason.PAIRING_MISSING, true)
+    state.set(CapturePauseReason.QUEUE_FULL, true)
+
+    state.set(CapturePauseReason.PAIRING_MISSING, false)
+    state.set(CapturePauseReason.QUEUE_FULL, false)
+
+    assertTrue(state.isPaused)
+    assertEquals(CapturePauseReason.USER, state.primaryReason())
+  }
+
 }

@@ -14,7 +14,8 @@ class CaptureTileService : TileService() {
       !ContinuousCaptureAccessibilityService.isEnabled(this) -> Tile.STATE_UNAVAILABLE
       !CapturePreferences.isRecordingDesired(this) -> Tile.STATE_INACTIVE
       CapturePreferences.isManuallyPaused(this) -> Tile.STATE_INACTIVE
-      else -> Tile.STATE_ACTIVE
+      CaptureState.state.value == RecordingState.RECORDING -> Tile.STATE_ACTIVE
+      else -> Tile.STATE_INACTIVE
     }
     qsTile?.updateTile()
   }
@@ -22,14 +23,14 @@ class CaptureTileService : TileService() {
   override fun onClick() {
     super.onClick()
     if (!ContinuousCaptureAccessibilityService.isEnabled(this)) {
-      startActivityAndCollapse(
-        PendingIntent.getActivity(
-          this,
-          0,
-          Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-      )
+      openApp()
+      return
+    }
+    if (CapturePreferences.isRecordingDesired(this) &&
+      !CapturePreferences.isManuallyPaused(this) &&
+      CaptureState.state.value != RecordingState.RECORDING
+    ) {
+      openApp()
       return
     }
 
@@ -44,5 +45,16 @@ class CaptureTileService : TileService() {
     }
     qsTile?.state = if (action == CaptureActions.PAUSE) Tile.STATE_INACTIVE else Tile.STATE_ACTIVE
     qsTile?.updateTile()
+  }
+
+  private fun openApp() {
+    startActivityAndCollapse(
+      PendingIntent.getActivity(
+        this,
+        0,
+        Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+    )
   }
 }

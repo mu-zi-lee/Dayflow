@@ -26,25 +26,28 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import so.dayflow.capture.DayflowCaptureApp
 import so.dayflow.capture.MainActivity
 import so.dayflow.capture.R
 
 class CaptureService : LifecycleService() {
   private val processing = AtomicBoolean(false)
+  private val checkingConditions = AtomicBoolean(false)
   private val mainHandler = Handler(Looper.getMainLooper())
   private val pauseState = CapturePauseState()
   private var sequence = 0L
   private var sessionId = UUID.randomUUID().toString()
   private var running = false
   private var stopping = false
+  private var consecutiveCaptureFailures = 0
   private lateinit var appReader: ForegroundAppReader
   private lateinit var privacy: PrivacyPreferences
   private val app by lazy { application as DayflowCaptureApp }
 
   private val captureLoop = object : Runnable {
     override fun run() {
-      captureScreenIfPossible()
+      evaluateConditionsAndCapture()
       mainHandler.postDelayed(this, CAPTURE_INTERVAL_MS)
     }
   }
@@ -122,7 +125,7 @@ class CaptureService : LifecycleService() {
     mainHandler.post(captureLoop)
   }
 
-  private fun captureScreenIfPossible() {
+  private fun captureScreenIfPossible(foregroundApp: ForegroundApp) {
     if (!running || pauseState.isPaused) return
     val power = getSystemService(PowerManager::class.java)
     if (!power.isInteractive || !processing.compareAndSet(false, true)) return
@@ -132,12 +135,11 @@ class CaptureService : LifecycleService() {
         processing.set(false)
         return@launch
       }
-      val foregroundApp = appReader.current()
-      if (app.hasVisibleActivity || foregroundApp?.packageName == packageName) {
+      if (app.hasVisibleActivity || foregroundApp.packageName == packageName) {
         processing.set(false)
         return@launch
       }
-      if (foregroundApp != null && privacy.isBlocked(foregroundApp)) {
+      if (privacy.isBlocked(foregroundApp)) {
         sequence += 1
         try {
           app.repository.enqueueMetadata(
@@ -146,6 +148,8 @@ class CaptureService : LifecycleService() {
             foregroundAppId = foregroundApp.packageName,
             foregroundAppName = foregroundApp.label
           )
+          CaptureState.markCaptureSuccess()
+          publishCaptureState()
         } finally {
           processing.set(false)
         }
@@ -163,6 +167,7 @@ class CaptureService : LifecycleService() {
 
     val requested = ContinuousCaptureAccessibilityService.takeScreenshot(
       onSuccess = { bitmap ->
+        consecutiveCaptureFailures = 0
         lifecycleScope.launch(Dispatchers.Default) {
           try {
             processBitmap(bitmap, foregroundApp)
@@ -174,7 +179,11 @@ class CaptureService : LifecycleService() {
       },
       onFailure = {
         processing.set(false)
-        CaptureState.update(RecordingState.RECORDING, getString(R.string.capture_unavailable))
+        consecutiveCaptureFailures += 1
+        if (consecutiveCaptureFailures >= 2) {
+          CaptureState.update(RecordingState.ERROR, getString(R.string.capture_repeatedly_unavailable))
+          updateNotification()
+        }
       }
     )
     if (!requested) {
@@ -211,7 +220,42 @@ class CaptureService : LifecycleService() {
       captureKind = captureKind,
       orientation = if (output.height >= output.width) "portrait" else "landscape_left"
     )
+    if (captureKind == "image") CaptureState.markCaptureSuccess()
+    publishCaptureState()
     if (output !== source) output.recycle()
+  }
+
+  private fun evaluateConditionsAndCapture() {
+    if (!running || !checkingConditions.compareAndSet(false, true)) return
+    lifecycleScope.launch {
+      try {
+        val (queuedBytes, foregroundApp) = withContext(Dispatchers.IO) {
+          app.database.captureDao().pendingByteCount() to appReader.current()
+        }
+        setPauseReason(
+          CapturePauseReason.PAIRING_MISSING,
+          app.pairingStore.pairing.value == null || !app.pairingStore.verified.value
+        )
+        setPauseReason(
+          CapturePauseReason.USAGE_ACCESS_MISSING,
+          !CaptureRequirements.hasUsageAccess(this@CaptureService)
+        )
+        setPauseReason(
+          CapturePauseReason.NOTIFICATION_PERMISSION_MISSING,
+          !CaptureRequirements.hasNotificationAccess(this@CaptureService)
+        )
+        setPauseReason(CapturePauseReason.QUEUE_FULL, queuedBytes >= MAX_QUEUE_BYTES)
+        setPauseReason(
+          CapturePauseReason.FOREGROUND_APP_UNKNOWN,
+          foregroundApp == null && !app.hasVisibleActivity
+        )
+        if (!pauseState.isPaused && foregroundApp != null) {
+          captureScreenIfPossible(foregroundApp)
+        }
+      } finally {
+        checkingConditions.set(false)
+      }
+    }
   }
 
   private fun scaleForUpload(bitmap: Bitmap): Bitmap {
@@ -263,7 +307,7 @@ class CaptureService : LifecycleService() {
   }
 
   private fun setPauseReason(reason: CapturePauseReason, active: Boolean) {
-    pauseState.set(reason, active)
+    if (!pauseState.set(reason, active)) return
     publishCaptureState()
     if (running) updateNotification()
   }
@@ -274,6 +318,10 @@ class CaptureService : LifecycleService() {
       CapturePauseReason.SCREEN_OFF -> getString(R.string.screen_locked_auto_resume)
       CapturePauseReason.QUEUE_FULL -> getString(R.string.queue_limit_reached)
       CapturePauseReason.USER -> getString(R.string.capture_paused_manually)
+      CapturePauseReason.PAIRING_MISSING -> getString(R.string.pairing_required_for_capture)
+      CapturePauseReason.USAGE_ACCESS_MISSING -> getString(R.string.usage_access_required_for_privacy)
+      CapturePauseReason.NOTIFICATION_PERMISSION_MISSING -> getString(R.string.notification_required_for_capture)
+      CapturePauseReason.FOREGROUND_APP_UNKNOWN -> getString(R.string.foreground_app_unknown)
       null -> null
     }
     CaptureState.update(
@@ -362,15 +410,17 @@ class CaptureService : LifecycleService() {
       Intent(this, CaptureService::class.java).setAction(CaptureActions.STOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
-    return NotificationCompat.Builder(this, CHANNEL_ID)
+    val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_dayflow)
       .setContentTitle(getString(if (pauseState.isPaused) R.string.capture_notification_paused else R.string.capture_notification_active))
-      .setContentText(getString(R.string.capture_notification_detail))
+      .setContentText(CaptureState.message.value ?: getString(R.string.capture_notification_detail))
       .setOngoing(running)
       .setContentIntent(openIntent)
-      .addAction(0, toggleLabel, toggleIntent)
-      .addAction(0, getString(R.string.stop_capture), stopIntent)
-      .build()
+    if (!pauseState.isPaused || manuallyPaused) {
+      builder.addAction(0, toggleLabel, toggleIntent)
+    }
+    builder.addAction(0, getString(R.string.stop_capture), stopIntent)
+    return builder.build()
   }
 
   private fun createChannel() {
