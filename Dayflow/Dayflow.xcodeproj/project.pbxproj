@@ -125,6 +125,7 @@
 				C4C1D29D2DB56805007D5A55 /* Sources */,
 				C4C1D29E2DB56805007D5A55 /* Frameworks */,
 				C4C1D29F2DB56805007D5A55 /* Resources */,
+				C4A7E0012F1F00010000000C /* Embed Dayflow CLI */,
 			);
 			buildRules = (
 			);
@@ -283,6 +284,25 @@
 			shellPath = /bin/sh;
 			shellScript = "APP_EXECUTABLE=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Contents/MacOS/${EXECUTABLE_NAME}\"\nRUNNING_PIDS=\"$(/usr/bin/pgrep -f \"^${APP_EXECUTABLE}$\" || true)\"\nif [ -z \"${RUNNING_PIDS}\" ]; then\n  exit 0\nfi\n\n/bin/kill -TERM ${RUNNING_PIDS}\nfor ATTEMPT in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do\n  if ! /usr/bin/pgrep -f \"^${APP_EXECUTABLE}$\" >/dev/null; then\n    exit 0\n  fi\n  /bin/sleep 0.1\ndone\n\nRUNNING_PIDS=\"$(/usr/bin/pgrep -f \"^${APP_EXECUTABLE}$\" || true)\"\nif [ -n \"${RUNNING_PIDS}\" ]; then\n  /bin/kill -KILL ${RUNNING_PIDS}\nfi\n";
 			showEnvVarsInLog = 0;
+		};
+		C4A7E0012F1F00010000000C /* Embed Dayflow CLI */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Dayflow CLI";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Build the SwiftPM CLI and place it next to the app executable.\n# env -i strips Xcode's SDK/arch variables, which confuse swift-build.\nset -euo pipefail\nCLI_DIR=\"${SRCROOT}/../tools/dayflow-cli\"\nif [ \"${CONFIGURATION}\" = \"Release\" ]; then\n  env -i HOME=\"$HOME\" PATH=\"/usr/bin:/bin:/usr/sbin:/sbin\" /usr/bin/swift build -c release --package-path \"$CLI_DIR\" --arch arm64 --arch x86_64\n  BIN=\"$CLI_DIR/.build/apple/Products/Release/dayflow\"\nelse\n  env -i HOME=\"$HOME\" PATH=\"/usr/bin:/bin:/usr/sbin:/sbin\" /usr/bin/swift build -c release --package-path \"$CLI_DIR\"\n  BIN=\"$CLI_DIR/.build/release/dayflow\"\nfi\nDEST_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Helpers\"\nDEST=\"$DEST_DIR/dayflow\"\nmkdir -p \"$DEST_DIR\"\ncp -f \"$BIN\" \"$DEST\"\n# Nested executables must match the app's signing identity or the app's\n# seal fails validation and RunningBoard refuses to launch it. Falls back\n# to adhoc (-) when signing is disabled.\ncodesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$DEST\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -454,11 +474,12 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_ASSET_PATHS = "\"Dayflow/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dayflow/Info.plist;
 				INFOPLIST_KEY_LSUIElement = NO;
@@ -468,7 +489,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.Dayflow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -489,11 +510,12 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_ASSET_PATHS = "\"Dayflow/Preview Content\"";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Dayflow/Info.plist;
 				INFOPLIST_KEY_LSUIElement = NO;
@@ -503,7 +525,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.Dayflow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -517,11 +539,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = L75WYD8X4Y;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.AmiTimeTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -535,11 +557,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = L75WYD8X4Y;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.AmiTimeTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -552,10 +574,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = L75WYD8X4Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.AmiTimeUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -568,10 +590,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 118;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = L75WYD8X4Y;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 2.0.3;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = teleportlabs.com.AmiTimeUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
