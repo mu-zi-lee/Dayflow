@@ -13,8 +13,8 @@ struct ReferralSurveyView: View {
   @State private var randomizedOptions = ReferralOption.randomizedConcreteOptions()
   @State private var hasSubmitted = false
 
-  @Binding private var selectedReferral: ReferralOption?
-  @Binding private var customReferral: String
+  private let externalSelectedReferral: Binding<ReferralOption?>?
+  private let externalCustomReferral: Binding<String>?
 
   init(
     prompt: String,
@@ -31,13 +31,29 @@ struct ReferralSurveyView: View {
     self.showSubmitButton = showSubmitButton
     self.onSubmit = onSubmit
 
-    if let selectedReferral = selectedReferral, let customReferral = customReferral {
-      _selectedReferral = selectedReferral
-      _customReferral = customReferral
+    if let selectedReferral, let customReferral {
+      externalSelectedReferral = selectedReferral
+      externalCustomReferral = customReferral
     } else {
-      _selectedReferral = _internalSelectedReferral.projectedValue
-      _customReferral = _internalCustomReferral.projectedValue
+      externalSelectedReferral = nil
+      externalCustomReferral = nil
     }
+  }
+
+  private var selectedReferralBinding: Binding<ReferralOption?> {
+    externalSelectedReferral ?? $internalSelectedReferral
+  }
+
+  private var customReferralBinding: Binding<String> {
+    externalCustomReferral ?? $internalCustomReferral
+  }
+
+  private var selectedReferral: ReferralOption? {
+    selectedReferralBinding.wrappedValue
+  }
+
+  private var customReferral: String {
+    customReferralBinding.wrappedValue
   }
 
   var body: some View {
@@ -155,16 +171,16 @@ struct ReferralSurveyView: View {
   }
 
   private func select(_ option: ReferralOption) {
-    selectedReferral = option
+    selectedReferralBinding.wrappedValue = option
     hasSubmitted = false
 
     if !option.requiresDetail {
-      customReferral = ""
+      customReferralBinding.wrappedValue = ""
     }
   }
 
   private var detailField: some View {
-    TextField(currentDetailPlaceholder, text: $customReferral)
+    TextField(currentDetailPlaceholder, text: customReferralBinding)
       .textFieldStyle(RoundedBorderTextFieldStyle())
       .font(.custom("Figtree", size: 13))
       .opacity(selectedReferral?.requiresDetail == true ? 1 : 0)
