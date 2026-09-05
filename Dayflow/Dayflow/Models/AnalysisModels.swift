@@ -24,10 +24,14 @@ struct RecordingChunk: Codable {
 struct Screenshot: Codable, Sendable {
   let id: Int64
   let capturedAt: Int  // Unix timestamp (instant of capture)
+  /// HEVC segment file (or a legacy .jpg for rows written before segments existed).
   let filePath: String
+  /// Share of the segment's bytes attributed to this frame; nil until the segment is finalized.
   let fileSize: Int64?
   let idleSecondsAtCapture: Int?
   let isDeleted: Bool
+  /// Frame position inside an HEVC segment. nil means `filePath` is a standalone image.
+  let frameIndex: Int?
   let captureId: String?
   let deviceId: String
   let platform: CapturePlatform
@@ -50,6 +54,7 @@ struct Screenshot: Codable, Sendable {
     fileSize: Int64?,
     idleSecondsAtCapture: Int?,
     isDeleted: Bool,
+    frameIndex: Int? = nil,
     captureId: String? = nil,
     deviceId: String = LocalCaptureDevice.id,
     platform: CapturePlatform = .macOS,
@@ -71,6 +76,7 @@ struct Screenshot: Codable, Sendable {
     self.fileSize = fileSize
     self.idleSecondsAtCapture = idleSecondsAtCapture
     self.isDeleted = isDeleted
+    self.frameIndex = frameIndex
     self.captureId = captureId
     self.deviceId = deviceId
     self.platform = platform

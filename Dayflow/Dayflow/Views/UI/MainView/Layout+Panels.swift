@@ -82,6 +82,8 @@ extension MainView {
           .padding(15)
       case .chat:
         ChatPanelView()
+      case .flow:
+        FlowView()
       case .agents:
         AgentsView()
       case .daily:
@@ -164,7 +166,11 @@ extension MainView {
       timelineTimeLabelFrames = frames
     }
     .onPreferenceChange(WeeklyHoursFramePreferenceKey.self) { frame in
-      weeklyHoursFrame = frame
+      // Deferred for the same reason as the cards-layer frame in
+      // CanvasTimelineDataView: avoid state writes during the layout pass.
+      DispatchQueue.main.async {
+        weeklyHoursFrame = frame
+      }
     }
   }
 

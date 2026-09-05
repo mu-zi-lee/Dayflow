@@ -548,6 +548,7 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
                   file_path TEXT NOT NULL,
                   file_size INTEGER,
                   idle_seconds_at_capture INTEGER,
+                  frame_index INTEGER,
                   is_deleted INTEGER DEFAULT 0,
                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
               );
@@ -739,6 +740,13 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
                 ALTER TABLE screenshots ADD COLUMN idle_seconds_at_capture INTEGER;
             """)
         print("✅ Added idle_seconds_at_capture column to screenshots")
+      }
+      if !screenshotColumns.contains("frame_index") {
+        try db.execute(
+          sql: """
+                ALTER TABLE screenshots ADD COLUMN frame_index INTEGER;
+            """)
+        print("✅ Added frame_index column to screenshots")
       }
 
       let screenshotColumnDefinitions: [(String, String)] = [

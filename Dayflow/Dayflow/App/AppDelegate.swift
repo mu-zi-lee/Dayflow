@@ -37,6 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   private var appLaunchDate: Date?
   private var foregroundStartTime: Date?
   private var referralUsageStartedAt: Date?
+  private var analyticsConfigured = false
 
   override init() {
     UserDefaultsMigrator.migrateIfNeeded()
@@ -58,6 +59,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let POSTHOG_HOST = info?["PHPostHogHost"] as? String ?? "https://us.i.posthog.com"
     if !POSTHOG_API_KEY.isEmpty {
       AnalyticsService.shared.start(apiKey: POSTHOG_API_KEY, host: POSTHOG_HOST)
+      analyticsConfigured = true
+      AgentUsageTelemetryQueue.drain()
     }
 
     // App opened (cold start)
@@ -167,6 +170,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Start daily recap generation scheduler (checks every 5 minutes)
     DailyRecapScheduler.shared.start()
 
+    // Flow desktop overlay (creature toasts/nudges) tracks the session mirror
+    FlowOverlayController.shared.start()
+
     // Observe recording state
     analyticsSub = AppState.shared.$isRecording
       .removeDuplicates()
@@ -202,6 +208,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let enabled =
           notification.userInfo?["enabled"] as? Bool ?? AnalyticsService.shared.isOptedIn
         self.updateCPUMonitoring(analyticsEnabled: enabled)
+        if enabled, self.analyticsConfigured {
+          AgentUsageTelemetryQueue.drain()
+        } else if !enabled {
+          AgentUsageTelemetryQueue.discard()
+        }
       }
     }
 
@@ -231,7 +242,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       queue: .main
     ) { [weak self] _ in
       MainActor.assumeIsolated {
-        self?.foregroundStartTime = Date()
+        guard let self else { return }
+        self.foregroundStartTime = Date()
+        if self.analyticsConfigured {
+          AgentUsageTelemetryQueue.drain()
+        }
       }
     }
 
@@ -342,6 +357,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func sendHeartbeat() {
+    if analyticsConfigured {
+      AgentUsageTelemetryQueue.drain()
+    }
     var props: [String: Any] = [:]
     if let launch = appLaunchDate {
       let sessionHours = Date().timeIntervalSince(launch) / 3600

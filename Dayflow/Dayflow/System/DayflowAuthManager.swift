@@ -258,9 +258,12 @@ final class DayflowAuthManager: ObservableObject {
   nonisolated private static let sessionAccount = "session_token"
   private static let rememberedEmailKey = "dayflowAccountEmail"
   private static let pendingReferralCodeKey = "dayflowPendingReferralCode"
+  private static let aliasedUserIdKey = "dayflowAnalyticsAliasedUserId"
 
   @Published private(set) var user: DayflowAuthUser?
   @Published private(set) var entitlements = DayflowEntitlement.free
+  /// Whether this account is whitelisted for the Flow beta (backend-driven).
+  @Published private(set) var flowEnabled = false
   @Published private(set) var pendingEmail: String?
   @Published private(set) var codeExpiresAt: Date?
   @Published private(set) var statusText = "Signed out"
@@ -367,7 +370,9 @@ final class DayflowAuthManager: ObservableObject {
       }
 
       user = response.user
+      linkAnalyticsIdentity(to: response.user)
       entitlements = response.entitlements
+      flowEnabled = response.flowEnabled ?? false
       pendingEmail = nil
       codeExpiresAt = nil
       statusText = "Signed in."
@@ -421,7 +426,9 @@ final class DayflowAuthManager: ObservableObject {
 
       let response: MeResponse = try await send(request)
       user = response.user
+      linkAnalyticsIdentity(to: response.user)
       entitlements = response.entitlements
+      flowEnabled = response.flowEnabled ?? false
       referralSummary = try? await fetchReferralSummary(token: token)
       statusText = "Signed in."
       errorText = nil
@@ -632,6 +639,16 @@ final class DayflowAuthManager: ObservableObject {
     Self.storedSessionToken()
   }
 
+  /// Aliases the Dayflow account id onto this install's PostHog person, once per account.
+  /// Every Mac signed into the same account merges into one PostHog person, so support
+  /// tickets and analytics show one history per account.
+  private func linkAnalyticsIdentity(to user: DayflowAuthUser) {
+    let defaults = UserDefaults.standard
+    guard defaults.string(forKey: Self.aliasedUserIdKey) != user.id else { return }
+    AnalyticsService.shared.alias(user.id)
+    defaults.set(user.id, forKey: Self.aliasedUserIdKey)
+  }
+
   nonisolated static func storedSessionToken() -> String? {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -718,6 +735,7 @@ final class DayflowAuthManager: ObservableObject {
   private func resetSignedOutState(status: String) {
     user = nil
     entitlements = .free
+    flowEnabled = false
     referralSummary = nil
     pendingEmail = nil
     codeExpiresAt = nil
@@ -868,17 +886,27 @@ private struct AuthVerifyResponse: Codable {
   let sessionToken: String
   let user: DayflowAuthUser
   let entitlements: DayflowEntitlement
+  // Optional so responses from older backends still decode.
+  let flowEnabled: Bool?
 
   private enum CodingKeys: String, CodingKey {
     case sessionToken = "session_token"
     case user
     case entitlements
+    case flowEnabled = "flow_enabled"
   }
 }
 
 private struct MeResponse: Codable {
   let user: DayflowAuthUser
   let entitlements: DayflowEntitlement
+  let flowEnabled: Bool?
+
+  private enum CodingKeys: String, CodingKey {
+    case user
+    case entitlements
+    case flowEnabled = "flow_enabled"
+  }
 }
 
 private struct LogoutResponse: Codable {

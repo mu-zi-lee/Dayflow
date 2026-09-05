@@ -121,6 +121,11 @@ struct DayflowApp: App {
   @StateObject private var journalCoordinator = JournalCoordinator()
 
   init() {
+    // Writing to stdout after its reader has gone away (app launched from a
+    // terminal or wrapper that exited) raises SIGPIPE and kills the process.
+    // Ignore it so the write simply fails with EPIPE instead.
+    signal(SIGPIPE, SIG_IGN)
+
     // Comment out for production - only use for testing onboarding
     // UserDefaults.standard.set(false, forKey: "didOnboard")
   }
@@ -276,6 +281,16 @@ struct DayflowApp: App {
         }
         .keyboardShortcut("N", modifiers: [.command, .shift])
       }
+
+      #if DEBUG
+        CommandGroup(after: .appInfo) {
+          Divider()
+          Button("Flow: Simulate Distraction") {
+            FlowSessionMirror.shared.simulateDistraction()
+          }
+          .keyboardShortcut("D", modifiers: [.command, .shift])
+        }
+      #endif
     }
     .defaultSize(width: 1200, height: 800)
 
@@ -324,6 +339,7 @@ extension Notification.Name {
     "showScreenRecordingPermissionNotice")
   static let openProvidersSettings = Notification.Name("openProvidersSettings")
   static let openAccountSettings = Notification.Name("openAccountSettings")
+  static let navigateToFlow = Notification.Name("navigateToFlow")
 }
 
 @MainActor

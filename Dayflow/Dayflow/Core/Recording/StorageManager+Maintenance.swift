@@ -448,34 +448,40 @@ extension StorageManager {
   private func purgeScreenshots(platform: CapturePlatform, limit: Int64) throws {
     guard limit != Int64.max else { return }
 
-    var currentSize = recordingUsageBytes(for: platform)
+    let currentSize = recordingUsageBytes(for: platform)
+    guard currentSize > limit else { return }
+
+    let activeSegmentPath = FrameStore.shared.activeSegmentPath
+    var freedSpace: Int64 = 0
     var passCount = 0
 
-    while currentSize > limit, passCount < 200 {
-      var deletedThisPass = 0
+    // Purge complete backing files. macOS rows can share one HEVC segment,
+    // while imported Android screenshots normally have one file per row.
+    while currentSize - freedSpace > limit, passCount < 200 {
+      var markedThisPass = 0
       var freedThisPass: Int64 = 0
 
       try timedWrite("purgeScreenshots.\(platform.rawValue)") { db in
-        let oldScreenshots = try Row.fetchAll(
+        let oldFiles = try Row.fetchAll(
           db,
           sql: """
-                SELECT id, file_path, file_size
+                SELECT file_path, SUM(file_size) AS bytes
                 FROM screenshots
                 WHERE is_deleted = 0
                   AND COALESCE(source_platform, 'macos') = ?
-                ORDER BY captured_at ASC
-                LIMIT 500
+                  AND file_path <> ''
+                GROUP BY file_path
+                ORDER BY MIN(captured_at) ASC
+                LIMIT 20
             """,
           arguments: [platform.rawValue]
         )
 
-        for screenshot in oldScreenshots {
-          guard let id: Int64 = screenshot["id"],
-            let path: String = screenshot["file_path"]
-          else { continue }
+        for file in oldFiles {
+          guard let path: String = file["file_path"], path != activeSegmentPath else { continue }
 
-          var fileSize: Int64 = screenshot["file_size"] ?? 0
-          if fileSize == 0,
+          var fileSize: Int64 = file["bytes"] ?? 0
+          if fileSize <= 0,
             let attrs = try? fileMgr.attributesOfItem(atPath: path),
             let size = attrs[.size] as? NSNumber
           {
@@ -483,30 +489,21 @@ extension StorageManager {
           }
 
           try db.execute(
-            sql: "UPDATE screenshots SET is_deleted = 1 WHERE id = ?",
-            arguments: [id]
+            sql: """
+                  UPDATE screenshots
+                  SET is_deleted = 1
+                  WHERE file_path = ? AND is_deleted = 0
+                    AND COALESCE(source_platform, 'macos') = ?
+              """,
+            arguments: [path, platform.rawValue]
           )
-
-          if fileMgr.fileExists(atPath: path) {
-            do {
-              try fileMgr.removeItem(atPath: path)
-            } catch {
-              print("⚠️ Failed to delete screenshot at \(path): \(error)")
-              try db.execute(
-                sql: "UPDATE screenshots SET is_deleted = 0 WHERE id = ?",
-                arguments: [id]
-              )
-              continue
-            }
-          }
-
           freedThisPass += fileSize
-          deletedThisPass += 1
+          markedThisPass += 1
         }
       }
 
-      guard deletedThisPass > 0 else { break }
-      currentSize = max(0, currentSize - freedThisPass)
+      guard markedThisPass > 0 else { break }
+      freedSpace += freedThisPass
       passCount += 1
     }
   }
@@ -516,16 +513,18 @@ extension StorageManager {
       let screenshots = try Row.fetchAll(
         db,
         sql: """
-              SELECT file_path, file_size
+              SELECT file_path, SUM(file_size) AS bytes
               FROM screenshots
               WHERE is_deleted = 0
                 AND COALESCE(source_platform, 'macos') = ?
+                AND file_path <> ''
+              GROUP BY file_path
           """,
         arguments: [platform.rawValue]
       )
 
       return screenshots.reduce(into: Int64(0)) { total, screenshot in
-        if let storedSize: Int64 = screenshot["file_size"], storedSize > 0 {
+        if let storedSize: Int64 = screenshot["bytes"], storedSize > 0 {
           total += storedSize
         } else if let path: String = screenshot["file_path"],
           let attrs = try? fileMgr.attributesOfItem(atPath: path),
@@ -539,6 +538,8 @@ extension StorageManager {
 
   func cleanupRecordingStragglers() {
     // Delete any recordings that are not referenced by active screenshots.
+    // Read the active segment before the row snapshot so a segment opened in between is covered.
+    let activeSegmentPath = FrameStore.shared.activeSegmentPath
     let activeScreenshotPaths: Set<String> = Set(
       (try? timedRead("activeScreenshotPaths") { db in
         try Row.fetchAll(
@@ -555,17 +556,25 @@ extension StorageManager {
     guard
       let enumerator = fileMgr.enumerator(
         at: root,
-        includingPropertiesForKeys: [.isDirectoryKey],
+        includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
         options: [.skipsHiddenFiles]
       )
     else { return }
 
     let deleteAll = activeScreenshotPaths.isEmpty
+    // A segment written after the row snapshot has no rows yet; never touch anything that young.
+    let youngestDeletableDate = Date().addingTimeInterval(-(FrameStore.segmentDuration + 60))
 
     for case let fileURL as URL in enumerator {
       do {
-        let values = try fileURL.resourceValues(forKeys: [.isDirectoryKey])
+        let values = try fileURL.resourceValues(forKeys: [
+          .isDirectoryKey, .contentModificationDateKey,
+        ])
         if values.isDirectory == true { continue }
+        if fileURL.path == activeSegmentPath { continue }
+        if let modified = values.contentModificationDate, modified > youngestDeletableDate {
+          continue
+        }
 
         if deleteAll || !activeScreenshotPaths.contains(fileURL.path) {
           try fileMgr.removeItem(at: fileURL)
