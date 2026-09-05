@@ -272,6 +272,14 @@ final class AndroidSyncServer: ObservableObject, @unchecked Sendable {
   }
 
   private func importCapture(metadata: CaptureImportMetadata, imageData: Data?) throws {
+    try StorageManager.shared.withRecordingStorageAccess {
+      try importCaptureWithStorageAccess(metadata: metadata, imageData: imageData)
+    }
+  }
+
+  private func importCaptureWithStorageAccess(
+    metadata: CaptureImportMetadata, imageData: Data?
+  ) throws {
     guard let imageData else {
       guard metadata.kind == .redacted else {
         throw SyncError.invalidRequest("Only redacted captures may omit image data")

@@ -179,7 +179,13 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
   let dbURL: URL
   var db: DatabasePool!  // var to allow recovery reassignment
   let fileMgr = FileManager.default
-  let root: URL
+  let recordingStorageLock = NSRecursiveLock()
+  var _root: URL
+  var root: URL {
+    recordingStorageLock.lock()
+    defer { recordingStorageLock.unlock() }
+    return _root
+  }
   let backupsDir: URL
   var recordingsRoot: URL { root }
 
@@ -204,21 +210,28 @@ final class StorageManager: StorageManaging, @unchecked Sendable {
 
     let appSupport = fileMgr.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     let baseDir = appSupport.appendingPathComponent("Dayflow", isDirectory: true)
-    let recordingsDir = baseDir.appendingPathComponent("recordings", isDirectory: true)
+    let defaultRecordingsDir = baseDir.appendingPathComponent("recordings", isDirectory: true)
+    let configuredRecordingsDir = RecordingStorageLocation.configuredRecordingsURL(
+      fileManager: fileMgr)
     let backupDir = baseDir.appendingPathComponent("backups", isDirectory: true)
 
     // Ensure directories exist before opening database
     try? fileMgr.createDirectory(at: baseDir, withIntermediateDirectories: true)
-    try? fileMgr.createDirectory(at: recordingsDir, withIntermediateDirectories: true)
+    _root = configuredRecordingsDir
+    do {
+      try fileMgr.createDirectory(at: configuredRecordingsDir, withIntermediateDirectories: true)
+    } catch {
+      // Do not silently split recordings across two roots when a cloud provider is offline.
+      print("⚠️ Could not open configured recordings folder: \(error)")
+    }
     try? fileMgr.createDirectory(at: backupDir, withIntermediateDirectories: true)
 
-    root = recordingsDir
     backupsDir = backupDir
     dbURL = baseDir.appendingPathComponent("chunks.sqlite")
 
     StorageManager.migrateDatabaseLocationIfNeeded(
       fileManager: fileMgr,
-      legacyRecordingsDir: recordingsDir,
+      legacyRecordingsDir: defaultRecordingsDir,
       newDatabaseURL: dbURL
     )
 

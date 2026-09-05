@@ -42,7 +42,6 @@ enum DayflowBackupManager {
 
     let dataURL = packageURL.appendingPathComponent(dataDirectoryName, isDirectory: true)
     let databaseURL = dataURL.appendingPathComponent(databaseFilename)
-    let recordingsSourceURL = StorageManager.shared.recordingsRoot
     let timelapsesSourceURL = TimelapseStorageManager.shared.rootURL
     let recordingsDestinationURL = dataURL.appendingPathComponent(
       recordingsDirectoryName,
@@ -66,9 +65,13 @@ enum DayflowBackupManager {
         try StorageManager.shared.db.backup(to: destinationDatabase)
       }
 
-      let includesRecordings = fileManager.fileExists(atPath: recordingsSourceURL.path)
-      if includesRecordings {
-        try fileManager.copyItem(at: recordingsSourceURL, to: recordingsDestinationURL)
+      let includesRecordings = try StorageManager.shared.withRecordingStorageAccess {
+        let recordingsSourceURL = StorageManager.shared.recordingsRoot
+        let includesRecordings = fileManager.fileExists(atPath: recordingsSourceURL.path)
+        if includesRecordings {
+          try fileManager.copyItem(at: recordingsSourceURL, to: recordingsDestinationURL)
+        }
+        return includesRecordings
       }
 
       let includesTimelapses = fileManager.fileExists(atPath: timelapsesSourceURL.path)

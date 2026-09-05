@@ -7,6 +7,7 @@ struct SettingsStorageTabView: View {
     VStack(alignment: .leading, spacing: SettingsStyle.sectionSpacing) {
       recordingStatusSection
       recordingQualitySection
+      recordingLocationSection
       diskUsageSection
     }
     .alert(isPresented: $viewModel.showLimitConfirmation) {
@@ -31,6 +32,48 @@ struct SettingsStorageTabView: View {
           viewModel.showLimitConfirmation = false
         }
       )
+    }
+  }
+
+  // MARK: - Recording location
+
+  private var recordingLocationSection: some View {
+    SettingsSection(
+      title: "Recording location",
+      subtitle: "Store recordings in another local or cloud-synced folder, including Box."
+    ) {
+      VStack(alignment: .leading, spacing: 0) {
+        SettingsRow(
+          label: "Folder",
+          subtitle: viewModel.recordingsLocationPath,
+          showsDivider: false
+        ) {
+          HStack(spacing: 8) {
+            SettingsSecondaryButton(
+              title: "Open",
+              isDisabled: viewModel.isMigratingRecordings,
+              action: viewModel.openRecordingsFolder
+            )
+            if !viewModel.isUsingDefaultRecordingsLocation {
+              SettingsSecondaryButton(
+                title: "Use Default",
+                isDisabled: viewModel.isMigratingRecordings,
+                action: viewModel.restoreDefaultRecordingsLocation
+              )
+            }
+            SettingsPrimaryButton(
+              title: viewModel.isMigratingRecordings ? "Moving…" : "Change…",
+              isLoading: viewModel.isMigratingRecordings,
+              action: viewModel.chooseRecordingsLocation
+            )
+          }
+        }
+
+        if let message = viewModel.recordingsLocationMessage {
+          SettingsMetadata(text: message)
+            .padding(.top, 12)
+        }
+      }
     }
   }
 

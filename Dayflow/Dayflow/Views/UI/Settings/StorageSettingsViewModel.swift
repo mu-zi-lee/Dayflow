@@ -21,6 +21,9 @@ final class StorageSettingsViewModel: ObservableObject {
   @Published var pendingLimit: PendingLimit?
   @Published var captureHeight: Int = ScreenshotConfig.captureHeight
   @Published var captureInterval: TimeInterval = ScreenshotConfig.interval
+  @Published var recordingsLocationPath: String
+  @Published var isMigratingRecordings = false
+  @Published var recordingsLocationMessage: String?
   /// Measured from the last hour of finalized segments; nil until enough has been recorded.
   @Published var observedBytesPerHour: Int64?
 
@@ -42,6 +45,7 @@ final class StorageSettingsViewModel: ObservableObject {
     macRecordingsLimitIndex = Self.indexForLimit(recordingsLimit)
     androidRecordingsLimitIndex = Self.indexForLimit(androidRecordingsLimit)
     timelapsesLimitIndex = Self.indexForLimit(timelapseLimit)
+    recordingsLocationPath = Self.displayPath(StorageManager.shared.recordingsRoot)
   }
 
   func refreshStorageIfNeeded(isStorageTab: Bool) {
@@ -203,6 +207,72 @@ final class StorageSettingsViewModel: ObservableObject {
     NSWorkspace.shared.open(url)
   }
 
+  var isUsingDefaultRecordingsLocation: Bool {
+    StorageManager.shared.recordingsRoot.standardizedFileURL
+      == RecordingStorageLocation.defaultRecordingsURL().standardizedFileURL
+  }
+
+  func chooseRecordingsLocation() {
+    guard !isMigratingRecordings else { return }
+
+    let panel = NSOpenPanel()
+    panel.title = "Choose recording storage location"
+    panel.message =
+      "Dayflow will create a Dayflow/recordings folder here and automatically move all existing recordings."
+    panel.prompt = "Choose"
+    panel.canChooseFiles = false
+    panel.canChooseDirectories = true
+    panel.canCreateDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.directoryURL = StorageManager.shared.recordingsRoot.deletingLastPathComponent()
+
+    guard panel.runModal() == .OK, let selectedDirectory = panel.url else { return }
+    migrateRecordings { try StorageManager.shared.relocateRecordings(inside: selectedDirectory) }
+  }
+
+  func restoreDefaultRecordingsLocation() {
+    guard !isMigratingRecordings else { return }
+    migrateRecordings { try StorageManager.shared.restoreDefaultRecordingsLocation() }
+  }
+
+  private func migrateRecordings(_ operation: @escaping @Sendable () throws -> URL) {
+    let shouldResumeRecording = AppState.shared.isRecording
+    if shouldResumeRecording {
+      AppState.shared.setRecording(false, analyticsReason: "storage_migration", persistPreference: false)
+    }
+
+    isMigratingRecordings = true
+    recordingsLocationMessage = "Moving and verifying existing recordings…"
+
+    Task {
+      let result = await Task.detached(priority: .utility) {
+        Result { try operation() }
+      }.value
+
+      self.isMigratingRecordings = false
+      switch result {
+      case .success(let destination):
+        self.recordingsLocationPath = Self.displayPath(destination)
+        self.recordingsLocationMessage = "All existing recordings were moved successfully."
+        self.refreshStorageMetrics(force: true)
+        AnalyticsService.shared.capture(
+          "recording_storage_location_changed",
+          ["uses_default": self.isUsingDefaultRecordingsLocation]
+        )
+      case .failure(let error):
+        self.recordingsLocationMessage = "Could not move recordings: \(error.localizedDescription)"
+      }
+
+      if shouldResumeRecording {
+        AppState.shared.setRecording(
+          true,
+          analyticsReason: "storage_migration",
+          persistPreference: false
+        )
+      }
+    }
+  }
+
   func openTimelapseFolder() {
     let url = TimelapseStorageManager.shared.rootURL
     ensureDirectoryExists(url)
@@ -242,6 +312,10 @@ final class StorageSettingsViewModel: ObservableObject {
       }
     }
     return storageOptions.count - 1
+  }
+
+  private static func displayPath(_ url: URL) -> String {
+    (url.path as NSString).abbreviatingWithTildeInPath
   }
 
   static let storageOptions: [StorageLimitOption] = [

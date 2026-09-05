@@ -427,6 +427,12 @@ extension StorageManager {
   }
 
   func performPurgeIfNeeded() {
+    withRecordingStorageAccess {
+      performPurgeWithStorageAccess()
+    }
+  }
+
+  private func performPurgeWithStorageAccess() {
     do {
       cleanupRecordingStragglers()
 
@@ -509,31 +515,33 @@ extension StorageManager {
   }
 
   func recordingUsageBytes(for platform: CapturePlatform) -> Int64 {
-    (try? timedRead("recordingUsageBytes.\(platform.rawValue)") { db in
-      let screenshots = try Row.fetchAll(
-        db,
-        sql: """
-              SELECT file_path, SUM(file_size) AS bytes
-              FROM screenshots
-              WHERE is_deleted = 0
-                AND COALESCE(source_platform, 'macos') = ?
-                AND file_path <> ''
-              GROUP BY file_path
-          """,
-        arguments: [platform.rawValue]
-      )
+    withRecordingStorageAccess {
+      (try? timedRead("recordingUsageBytes.\(platform.rawValue)") { db in
+        let screenshots = try Row.fetchAll(
+          db,
+          sql: """
+                SELECT file_path, SUM(file_size) AS bytes
+                FROM screenshots
+                WHERE is_deleted = 0
+                  AND COALESCE(source_platform, 'macos') = ?
+                  AND file_path <> ''
+                GROUP BY file_path
+            """,
+          arguments: [platform.rawValue]
+        )
 
-      return screenshots.reduce(into: Int64(0)) { total, screenshot in
-        if let storedSize: Int64 = screenshot["bytes"], storedSize > 0 {
-          total += storedSize
-        } else if let path: String = screenshot["file_path"],
-          let attrs = try? fileMgr.attributesOfItem(atPath: path),
-          let size = attrs[.size] as? NSNumber
-        {
-          total += size.int64Value
+        return screenshots.reduce(into: Int64(0)) { total, screenshot in
+          if let storedSize: Int64 = screenshot["bytes"], storedSize > 0 {
+            total += storedSize
+          } else if let path: String = screenshot["file_path"],
+            let attrs = try? fileMgr.attributesOfItem(atPath: path),
+            let size = attrs[.size] as? NSNumber
+          {
+            total += size.int64Value
+          }
         }
-      }
-    }) ?? 0
+      }) ?? 0
+    }
   }
 
   func cleanupRecordingStragglers() {

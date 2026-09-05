@@ -28,6 +28,8 @@ final class FrameStore: @unchecked Sendable {
 
   private let writeQueue = DispatchQueue(label: "com.dayflow.framestore.write", qos: .userInitiated)
   private var writer: SegmentWriter?
+  private let activePathLock = NSLock()
+  private var _activeSegmentPath: String?
 
   private let readLock = NSLock()
   private var readers: [String: SegmentReader] = [:]
@@ -40,7 +42,9 @@ final class FrameStore: @unchecked Sendable {
 
   /// Path of the segment currently being written, if any. Purge must never delete it.
   var activeSegmentPath: String? {
-    writeQueue.sync { writer?.url.path }
+    activePathLock.lock()
+    defer { activePathLock.unlock() }
+    return _activeSegmentPath
   }
 
   /// Encodes one frame and records it in the database. Returns the new screenshot id.
@@ -59,6 +63,9 @@ final class FrameStore: @unchecked Sendable {
           return nil
         }
         writer = created
+        activePathLock.lock()
+        _activeSegmentPath = created.url.path
+        activePathLock.unlock()
       }
 
       guard let current = writer else { return nil }
@@ -85,6 +92,15 @@ final class FrameStore: @unchecked Sendable {
     writeQueue.sync { finishWriterLocked() }
   }
 
+  /// Finalizes the active segment and prevents new frames from being written
+  /// while a recording-directory migration is in progress.
+  func withExclusiveWriterAccess<T>(_ operation: () throws -> T) rethrows -> T {
+    try writeQueue.sync {
+      finishWriterLocked()
+      return try operation()
+    }
+  }
+
   /// Must be called on `writeQueue`.
   private func finishWriterLocked() {
     guard let current = writer else { return }
@@ -102,6 +118,10 @@ final class FrameStore: @unchecked Sendable {
       try? FileManager.default.removeItem(at: current.url)
       StorageManager.shared.markScreenshotsDeleted(segmentPath: path)
     }
+
+    activePathLock.lock()
+    _activeSegmentPath = nil
+    activePathLock.unlock()
   }
 
   /// Drops the most recent segment if a crash left it unreadable. Call once at launch.
