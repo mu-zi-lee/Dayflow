@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct DailyAccessIntroView: View {
+  @Environment(\.dayflowTheme) private var theme
+
   let betaNoticeCopy: String
   let progressText: String
   let canRequestAccess: Bool
@@ -25,14 +27,14 @@ struct DailyAccessIntroView: View {
 
       Text(betaNoticeCopy)
         .font(.custom("Figtree-Regular", size: 15))
-        .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12).opacity(0.8))
+        .foregroundColor(theme.textSecondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 480)
         .padding(.horizontal, 24)
 
       Text("Daily unlocks after 5 hours of analyzed timeline data. \(progressText)")
         .font(.custom("Figtree-SemiBold", size: 13))
-        .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12).opacity(0.76))
+        .foregroundColor(theme.textSecondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 460)
         .padding(.horizontal, 24)
@@ -81,6 +83,8 @@ struct DailyAccessIntroView: View {
 }
 
 struct DailyNotificationOnboardingView: View {
+  @Environment(\.dayflowTheme) private var theme
+
   let notificationPermissionMessage: String
   let notificationPermissionButtonTitle: String
   let isNotificationPermissionButtonDisabled: Bool
@@ -105,6 +109,8 @@ struct DailyNotificationOnboardingView: View {
 }
 
 struct DailyProviderOnboardingView: View {
+  @Environment(\.dayflowTheme) private var theme
+
   let selectedProvider: DailyRecapProvider
   let providerAvailability: [DailyRecapProvider: DailyRecapProviderAvailability]
   let isRefreshingProviderAvailability: Bool
@@ -120,14 +126,14 @@ struct DailyProviderOnboardingView: View {
         VStack(spacing: 6) {
           Text("Pick your Daily provider")
             .font(.custom("InstrumentSerif-Regular", size: 24))
-            .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12))
+            .foregroundColor(theme.textPrimary)
             .multilineTextAlignment(.center)
 
           Text(
             "Choose how Daily generates your recap, or turn generation off. You can change this later."
           )
           .font(.custom("Figtree-Regular", size: 13))
-          .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12).opacity(0.8))
+          .foregroundColor(theme.textSecondary)
           .multilineTextAlignment(.center)
           .frame(maxWidth: 420)
         }
@@ -135,7 +141,7 @@ struct DailyProviderOnboardingView: View {
         if isRefreshingProviderAvailability {
           ProgressView()
             .controlSize(.small)
-            .tint(Color(hex: "B46531"))
+            .tint(theme.accent)
         }
 
         VStack(spacing: 6) {
@@ -155,11 +161,13 @@ struct DailyProviderOnboardingView: View {
                 VStack(alignment: .leading, spacing: 3) {
                   Text(provider.displayName)
                     .font(.custom("Figtree-SemiBold", size: 13))
-                    .foregroundStyle(Color(hex: isSelected ? "8F522C" : "2F241D"))
+                    .foregroundStyle(theme.textPrimary)
 
                   Text(availability.detail)
                     .font(.custom("Figtree-Regular", size: 11))
-                    .foregroundStyle(Color(hex: availability.isAvailable ? "8B6B59" : "B07A74"))
+                    .foregroundStyle(
+                      availability.isAvailable ? theme.textSecondary : theme.textMuted
+                    )
                     .multilineTextAlignment(.leading)
                 }
 
@@ -167,30 +175,24 @@ struct DailyProviderOnboardingView: View {
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                   .font(.system(size: 13, weight: .semibold))
-                  .foregroundStyle(
-                    isSelected ? Color(hex: "C96F3A") : Color(hex: "D3C6BE")
-                  )
+                  .foregroundStyle(isSelected ? theme.accent : theme.textMuted)
               }
               .padding(.horizontal, 12)
               .padding(.vertical, 10)
               .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                  .fill(
-                    isSelected
-                      ? Color(hex: "FFF4EC")
-                      : Color(hex: "FAF8F7")
-                  )
+                  .fill(isSelected ? theme.controlFill : theme.chipFill)
               )
               .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                   .stroke(
-                    isSelected ? Color(hex: "EBC4AB") : Color(hex: "E8E1DC"),
-                    lineWidth: 1.2
+                    isSelected ? theme.controlBorder : theme.chipBorder,
+                    lineWidth: 1
                   )
               )
               .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AccessButtonStyle())
             .disabled(!availability.isAvailable)
             .pointingHandCursor(enabled: availability.isAvailable)
           }
@@ -203,8 +205,8 @@ struct DailyProviderOnboardingView: View {
               .font(.custom("Figtree", size: 14))
               .fontWeight(.semibold)
           },
-          background: Color(red: 0.25, green: 0.17, blue: 0),
-          foreground: .white,
+          background: theme.primaryButtonFill,
+          foreground: theme.primaryButtonText,
           borderColor: .clear,
           cornerRadius: 10,
           horizontalPadding: 20,
@@ -219,19 +221,10 @@ struct DailyProviderOnboardingView: View {
       .frame(maxWidth: 460)
       .background(
         RoundedRectangle(cornerRadius: 24, style: .continuous)
-          .fill(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(0.72),
-                Color(red: 1.0, green: 0.93, blue: 0.89).opacity(0.58),
-              ],
-              startPoint: .topLeading,
-              endPoint: .bottomTrailing
-            )
-          )
+          .fill(theme.summaryCardFill)
           .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-              .stroke(Color.white.opacity(0.58), lineWidth: 1)
+              .stroke(theme.summaryCardBorder, lineWidth: 1)
           )
       )
       .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 6)
@@ -240,15 +233,17 @@ struct DailyProviderOnboardingView: View {
 }
 
 private struct DailyAccessHeaderView: View {
+  @Environment(\.dayflowTheme) private var theme
+
   var body: some View {
     HStack(alignment: .top, spacing: 4) {
       Text("Dayflow Daily")
         .font(.custom("InstrumentSerif-Italic", size: 38))
-        .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12))
+        .foregroundColor(theme.textPrimary)
 
       Text("BETA")
         .font(.custom("Figtree-Bold", size: 11))
-        .foregroundColor(.white)
+        .foregroundColor(theme.primaryButtonText)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
@@ -267,6 +262,8 @@ private enum DailyAccessRequestState {
 }
 
 private struct DailyAnimatedRequestAccessButton: View {
+  @Environment(\.dayflowTheme) private var theme
+
   let requestState: DailyAccessRequestState
   let showsSuccessRing: Bool
   let isEnabled: Bool
@@ -276,15 +273,9 @@ private struct DailyAnimatedRequestAccessButton: View {
 
   private var backgroundColor: Color {
     guard isEnabled else {
-      return Color(red: 0.68, green: 0.62, blue: 0.56)
+      return theme.secondaryButtonFill
     }
-
-    switch requestState {
-    case .idle:
-      return Color(red: 0.25, green: 0.17, blue: 0)
-    case .granted:
-      return Color(red: 0.34, green: 0.24, blue: 0.05)
-    }
+    return theme.primaryButtonFill
   }
 
   private var buttonScale: CGFloat {
@@ -312,7 +303,7 @@ private struct DailyAnimatedRequestAccessButton: View {
           Text("Unlock Daily")
             .font(.custom("Figtree", size: 15))
             .fontWeight(.semibold)
-            .foregroundColor(.white)
+            .foregroundColor(isEnabled ? theme.primaryButtonText : theme.textSecondary)
             .opacity(requestState == .idle ? 1 : 0)
             .offset(y: requestState == .idle ? 0 : -5)
 
@@ -323,7 +314,7 @@ private struct DailyAnimatedRequestAccessButton: View {
               .font(.custom("Figtree", size: 15))
               .fontWeight(.semibold)
           }
-          .foregroundColor(.white)
+          .foregroundColor(isEnabled ? theme.primaryButtonText : theme.textSecondary)
           .opacity(requestState == .granted ? 1 : 0)
           .offset(y: requestState == .granted ? 0 : 5)
         }
@@ -336,13 +327,15 @@ private struct DailyAnimatedRequestAccessButton: View {
       .animation(stateChangeAnimation, value: requestState)
       .animation(successRingAnimation, value: showsSuccessRing)
     }
-    .buttonStyle(.plain)
+    .buttonStyle(AccessButtonStyle())
     .disabled(requestState == .granted || !isEnabled)
     .pointingHandCursor(enabled: requestState == .idle && isEnabled)
   }
 }
 
 private struct DailyNotificationPermissionPanelView: View {
+  @Environment(\.dayflowTheme) private var theme
+
   let notificationPermissionMessage: String
   let notificationPermissionButtonTitle: String
   let isNotificationPermissionButtonDisabled: Bool
@@ -354,18 +347,18 @@ private struct DailyNotificationPermissionPanelView: View {
     VStack(spacing: 16) {
       Text("Turn on notifications to unlock Daily")
         .font(.custom("InstrumentSerif-Regular", size: 30))
-        .foregroundColor(Color(red: 0.85, green: 0.45, blue: 0.25))
+        .foregroundColor(theme.textPrimary)
         .multilineTextAlignment(.center)
 
       Text("Dayflow uses notifications to tell you when your recap is ready.")
         .font(.custom("Figtree-SemiBold", size: 16))
-        .foregroundColor(Color(red: 0.25, green: 0.15, blue: 0.10))
+        .foregroundColor(theme.textPrimary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 420)
 
       Text(notificationPermissionMessage)
         .font(.custom("Figtree-Regular", size: 14))
-        .foregroundColor(Color(red: 0.35, green: 0.22, blue: 0.12).opacity(0.8))
+        .foregroundColor(theme.textSecondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 430)
 
@@ -377,8 +370,8 @@ private struct DailyNotificationPermissionPanelView: View {
               .font(.custom("Figtree", size: 15))
               .fontWeight(.semibold)
           },
-          background: Color(red: 0.25, green: 0.17, blue: 0),
-          foreground: .white,
+          background: theme.primaryButtonFill,
+          foreground: theme.primaryButtonText,
           borderColor: .clear,
           cornerRadius: 10,
           horizontalPadding: 24,
@@ -395,9 +388,9 @@ private struct DailyNotificationPermissionPanelView: View {
               .font(.custom("Figtree", size: 14))
               .fontWeight(.semibold)
           },
-          background: .white.opacity(0.9),
-          foreground: Color(red: 0.25, green: 0.17, blue: 0),
-          borderColor: Color(red: 0.25, green: 0.17, blue: 0).opacity(0.16),
+          background: theme.secondaryButtonFill,
+          foreground: theme.secondaryButtonText,
+          borderColor: theme.secondaryButtonBorder,
           cornerRadius: 10,
           horizontalPadding: 20,
           verticalPadding: 11,
@@ -412,21 +405,19 @@ private struct DailyNotificationPermissionPanelView: View {
     .frame(maxWidth: 560)
     .background(
       RoundedRectangle(cornerRadius: 28, style: .continuous)
-        .fill(
-          LinearGradient(
-            colors: [
-              Color.white.opacity(0.72),
-              Color(red: 1.0, green: 0.93, blue: 0.89).opacity(0.58),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-          )
-        )
+        .fill(theme.summaryCardFill)
         .overlay(
           RoundedRectangle(cornerRadius: 28, style: .continuous)
-            .stroke(Color.white.opacity(0.58), lineWidth: 1)
+            .stroke(theme.summaryCardBorder, lineWidth: 1)
         )
     )
     .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 8)
+  }
+}
+
+// Keep disabled access requirements readable; their subdued fill signals the state.
+struct AccessButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.opacity(configuration.isPressed ? 0.85 : 1)
   }
 }

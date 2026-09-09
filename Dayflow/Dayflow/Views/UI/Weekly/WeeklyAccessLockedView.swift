@@ -126,6 +126,7 @@ struct WeeklyAccessLockedView: View {
 }
 
 private struct WeeklyAccessLockCard: View {
+  @Environment(\.dayflowTheme) private var theme
   let recordedTimeText: String
   let isReady: Bool
   let progress: Double
@@ -147,7 +148,7 @@ private struct WeeklyAccessLockCard: View {
       VStack(spacing: 4) {
         Text("Unlock Weekly")
           .font(.custom("InstrumentSerif-Regular", size: 22))
-          .foregroundStyle(Color(hex: "333333"))
+          .foregroundStyle(WeeklyPalette.text)
           .multilineTextAlignment(.center)
           .lineLimit(1)
           .minimumScaleFactor(0.76)
@@ -155,7 +156,7 @@ private struct WeeklyAccessLockCard: View {
 
         Text("Weekly unlocks after 30 hours of recorded timeline data")
           .font(.custom("Figtree-Regular", size: 14))
-          .foregroundStyle(Color(hex: "796E64"))
+          .foregroundStyle(WeeklyPalette.secondaryText)
           .multilineTextAlignment(.center)
           .lineLimit(1)
           .minimumScaleFactor(0.76)
@@ -174,7 +175,7 @@ private struct WeeklyAccessLockCard: View {
       Button(action: onNotify) {
         Text(buttonTitle)
           .font(.custom("Figtree-Medium", size: 14))
-          .foregroundStyle(Color.white)
+          .foregroundStyle(isButtonDisabled ? theme.textSecondary : theme.primaryButtonText)
           .lineLimit(1)
           .minimumScaleFactor(0.72)
           .frame(width: 140)
@@ -182,9 +183,9 @@ private struct WeeklyAccessLockCard: View {
       .frame(width: 188, height: 36)
       .background(
         RoundedRectangle(cornerRadius: 4, style: .continuous)
-          .fill(Color(hex: "402B00").opacity(isButtonDisabled ? 0.62 : 1))
+          .fill(isButtonDisabled ? theme.secondaryButtonFill : theme.primaryButtonFill)
       )
-      .buttonStyle(.plain)
+      .buttonStyle(AccessButtonStyle())
       .disabled(isButtonDisabled)
       .pointingHandCursorOnHover(enabled: !isButtonDisabled)
       .position(x: 247.94, y: 229)
@@ -193,17 +194,22 @@ private struct WeeklyAccessLockCard: View {
     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     .overlay(
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(Color.white, lineWidth: 1)
+        .stroke(WeeklyPalette.cardInnerStroke, lineWidth: 1)
     )
     .shadow(color: Color(hex: "80450D").opacity(0.2), radius: 12, x: 0, y: 2)
   }
 }
 
 private struct WeeklyAccessCardBackground: View {
+  @Environment(\.dayflowTheme) private var theme
   var body: some View {
     ZStack {
       RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(Color(hex: "FFF7EF"))
+        .fill(theme.panelSolid)
+        .overlay {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(WeeklyPalette.cardFillStrong)
+        }
 
       WeeklyAccessGlowCircle(size: 287, colors: [Color(hex: "FFE6A3"), Color(hex: "FF8A1E")])
         .position(x: 185.4, y: -160.4)
@@ -248,17 +254,18 @@ private struct WeeklyAccessGlowCircle: View {
 }
 
 private struct WeeklyAccessCountdownPill: View {
+  @Environment(\.dayflowTheme) private var theme
   let text: String
 
   var body: some View {
     ZStack {
       Capsule(style: .continuous)
-        .fill(Color(hex: "FFEBD6"))
+        .fill(WeeklyPalette.highlightChipFill)
         .overlay(
           Capsule(style: .continuous)
             .stroke(Color(hex: "FF8904").opacity(0.5), lineWidth: 1)
         )
-        .shadow(color: Color(hex: "FDE7D1"), radius: 8, x: 0, y: 2)
+        .shadow(color: WeeklyPalette.shadow, radius: 8, x: 0, y: 2)
 
       Ellipse()
         .fill(
@@ -280,7 +287,7 @@ private struct WeeklyAccessCountdownPill: View {
 
       Text(text)
         .font(.custom("InstrumentSerif-Regular", size: 20.5))
-        .foregroundStyle(Color(hex: "FF7856"))
+        .foregroundStyle(theme.textPrimary)
         .lineLimit(1)
         .minimumScaleFactor(0.72)
         .frame(width: 142, height: 27, alignment: .center)
@@ -305,7 +312,7 @@ private struct WeeklyAccessProgressBar: View {
 
     ZStack(alignment: .leading) {
       Capsule(style: .continuous)
-        .fill(Color(hex: "EAE0DD"))
+        .fill(WeeklyPalette.rowFill)
         .frame(width: barWidth, height: barHeight)
         .offset(x: knobSize / 2)
 
@@ -356,19 +363,24 @@ private struct WeeklyAccessProgressBar: View {
 }
 
 private struct WeeklyAccessLockedBackground: View {
+  @Environment(\.dayflowTheme) private var theme
   var body: some View {
     ZStack {
-      Color(hex: "FFF8F0").opacity(0.28)
+      if theme.isDark {
+        theme.panelSolid.opacity(0.78)
+      } else {
+        Color(hex: "FFF8F0").opacity(0.28)
 
-      LinearGradient(
-        colors: [
-          Color.white.opacity(0.68),
-          Color(hex: "FDF3EA").opacity(0.42),
-          Color(hex: "FFE2C4").opacity(0.22),
-        ],
-        startPoint: .topTrailing,
-        endPoint: .bottomLeading
-      )
+        LinearGradient(
+          colors: [
+            Color.white.opacity(0.68),
+            Color(hex: "FDF3EA").opacity(0.42),
+            Color(hex: "FFE2C4").opacity(0.22),
+          ],
+          startPoint: .topTrailing,
+          endPoint: .bottomLeading
+        )
+      }
     }
     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
   }

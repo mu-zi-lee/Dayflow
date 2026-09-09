@@ -78,11 +78,6 @@ extension MainView {
           InactivityMonitor.shared.markHandledIfPending()
         }
       }
-      .onReceive(NotificationCenter.default.publisher(for: .navigateToJournal)) { _ in
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-          selectedIcon = .weekly
-        }
-      }
       .onReceive(NotificationCenter.default.publisher(for: .navigateToWeekly)) { _ in
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
           selectedIcon = .weekly
@@ -188,9 +183,7 @@ extension MainView {
 
   private func handleTabSelectionChange(_ newIcon: SidebarIcon) {
     // Clear tab-specific notification badges once the user visits the destination.
-    if newIcon == .journal {
-      NotificationBadgeManager.shared.clearJournalBadge()
-    } else if newIcon == .daily {
+    if newIcon == .daily {
       if !consumePendingDailyRecapOpenIfNeeded(source: "daily_tab_selected") {
         NotificationBadgeManager.shared.clearDailyBadge()
       }
@@ -405,7 +398,7 @@ extension MainView {
     if showCategoryEditor {
       ColorOrganizerRoot(
         presentationStyle: .sheet,
-        onDismiss: { showCategoryEditor = false }, completionButtonTitle: "Save", showsTitles: true
+        onDismiss: { showCategoryEditor = false }, completionButtonTitle: "Done", showsTitles: true
       )
       .environmentObject(categoryStore)
       // Removed .contentShape(Rectangle()) and .onTapGesture to allow keyboard input
@@ -414,6 +407,7 @@ extension MainView {
 }
 
 private struct TimelineFailureToastView: View {
+  @Environment(\.dayflowTheme) private var theme
   let title: String?
   let message: String
   let actionTitle: String
@@ -435,19 +429,19 @@ private struct TimelineFailureToastView: View {
             Text(title)
               .font(.custom("Figtree", size: 13))
               .fontWeight(.semibold)
-              .foregroundColor(.black.opacity(0.86))
+              .foregroundColor(theme.textPrimary)
           }
 
           Text(message)
             .font(.custom("Figtree", size: title == nil ? 13 : 12))
-            .foregroundColor(.black.opacity(title == nil ? 0.82 : 0.62))
+            .foregroundColor(title == nil ? theme.textPrimary : theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
         }
 
         Button(action: onDismiss) {
           Image(systemName: "xmark")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(.black.opacity(0.45))
+            .foregroundColor(theme.textMuted)
             .frame(width: 18, height: 18)
         }
         .buttonStyle(.plain)
@@ -466,8 +460,8 @@ private struct TimelineFailureToastView: View {
               .fontWeight(.semibold)
           }
         },
-        background: Color(red: 0.25, green: 0.17, blue: 0),
-        foreground: .white,
+        background: theme.primaryButtonFill,
+        foreground: theme.primaryButtonText,
         borderColor: .clear,
         cornerRadius: 8,
         horizontalPadding: 14,
@@ -477,17 +471,18 @@ private struct TimelineFailureToastView: View {
     }
     .padding(14)
     .frame(width: 360, alignment: .leading)
-    .background(Color(hex: "FFF8F2"))
+    .background(theme.popoverFill)
     .cornerRadius(12)
     .overlay(
       RoundedRectangle(cornerRadius: 12)
-        .stroke(Color(hex: "F3D9C2"), lineWidth: 1)
+        .stroke(theme.popoverBorder, lineWidth: 1)
     )
     .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
   }
 }
 
 private struct ScreenRecordingPermissionNoticeView: View {
+  @Environment(\.dayflowTheme) private var theme
   let onOpenSettings: () -> Void
   let onDismiss: () -> Void
 
@@ -503,18 +498,18 @@ private struct ScreenRecordingPermissionNoticeView: View {
           Text("Screen recording access needed")
             .font(.custom("Figtree", size: 13))
             .fontWeight(.semibold)
-            .foregroundColor(.black.opacity(0.86))
+            .foregroundColor(theme.textPrimary)
 
           Text("Dayflow cannot update your timeline until access is restored.")
             .font(.custom("Figtree", size: 12))
-            .foregroundColor(.black.opacity(0.62))
+            .foregroundColor(theme.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
         }
 
         Button(action: onDismiss) {
           Image(systemName: "xmark")
             .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(.black.opacity(0.45))
+            .foregroundColor(theme.textMuted)
             .frame(width: 18, height: 18)
         }
         .buttonStyle(.plain)
@@ -533,8 +528,8 @@ private struct ScreenRecordingPermissionNoticeView: View {
               .fontWeight(.semibold)
           }
         },
-        background: Color(red: 0.25, green: 0.17, blue: 0),
-        foreground: .white,
+        background: theme.primaryButtonFill,
+        foreground: theme.primaryButtonText,
         borderColor: .clear,
         cornerRadius: 8,
         horizontalPadding: 14,
@@ -544,11 +539,11 @@ private struct ScreenRecordingPermissionNoticeView: View {
     }
     .padding(14)
     .frame(width: 360, alignment: .leading)
-    .background(Color(hex: "FFF8F2"))
+    .background(theme.popoverFill)
     .cornerRadius(12)
     .overlay(
       RoundedRectangle(cornerRadius: 12)
-        .stroke(Color(hex: "F3D9C2"), lineWidth: 1)
+        .stroke(theme.popoverBorder, lineWidth: 1)
     )
     .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
   }
