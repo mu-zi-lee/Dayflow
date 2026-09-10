@@ -204,9 +204,22 @@ struct TimelineFailureClassification {
   }
 }
 
+/// Preserves both errors from a failed provider fallback while keeping the
+/// primary provider's error as the user-facing root cause.
+struct LLMProviderFallbackError: LocalizedError {
+  let primaryError: Error
+  let backupError: Error
+
+  var errorDescription: String? {
+    "Primary provider failed: \(primaryError.localizedDescription)\n"
+      + "Backup provider failed: \(backupError.localizedDescription)"
+  }
+}
+
 enum TimelineFailureClassifier {
   static func classify(_ error: Error) -> TimelineFailureClassification {
-    let lower = error.localizedDescription.lowercased()
+    let classificationError = (error as? LLMProviderFallbackError)?.primaryError ?? error
+    let lower = classificationError.localizedDescription.lowercased()
     return TimelineFailureClassification(
       kind: kind(for: lower),
       providerName: providerName(in: lower)

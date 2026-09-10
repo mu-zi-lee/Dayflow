@@ -12,6 +12,17 @@ final class OpenAICompatibleProviderTests: XCTestCase {
       bearerToken: "test-token")
   }
 
+  func testCardGenerationUsesExtendedRequestTimeout() {
+    XCTAssertEqual(
+      OpenAICompatibleProvider.timeoutInterval(for: "generate_cards"),
+      OpenAICompatibleProvider.cardGenerationTimeoutInterval
+    )
+    XCTAssertEqual(
+      OpenAICompatibleProvider.timeoutInterval(for: "transcribe_screenshots"),
+      60.0
+    )
+  }
+
   func testReasoningOnlySentToOpenRouter() throws {
     for endpoint in ["https://openrouter.ai/api/v1", "https://example.com/v1"] {
       let provider = OpenAICompatibleProvider(configuration: configuration(endpoint))

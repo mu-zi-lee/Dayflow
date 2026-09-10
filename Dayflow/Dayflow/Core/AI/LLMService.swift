@@ -371,9 +371,9 @@ final class LLMService: LLMServicing {
       let value = try await work(activeContext)
       let usingBackup = activeContext.id != primaryContext.id
       return (value, activeContext, usingBackup)
-    } catch {
+    } catch let primaryError {
       guard activeContext.id == primaryContext.id, let backupContext else {
-        throw error
+        throw primaryError
       }
 
       let attemptProps = fallbackProps(
@@ -383,7 +383,7 @@ final class LLMService: LLMServicing {
         primaryProviderLabel: primaryContext.providerLabel,
         backupProviderID: backupContext.id,
         backupProviderLabel: backupContext.providerLabel,
-        error: error
+        error: primaryError
       )
       AnalyticsService.shared.capture("llm_timeline_fallback_attempted", attemptProps)
 
@@ -397,7 +397,7 @@ final class LLMService: LLMServicing {
         failureProps["backup_error_domain"] = backupError.domain
         failureProps["backup_error_code"] = backupError.code
         AnalyticsService.shared.capture("llm_timeline_fallback_failed", failureProps)
-        throw error
+        throw LLMProviderFallbackError(primaryError: primaryError, backupError: error)
       }
     }
   }
@@ -1121,6 +1121,10 @@ final class LLMService: LLMServicing {
   }
 
   private func getHumanReadableError(_ error: Error) -> String {
+    if let fallbackError = error as? LLMProviderFallbackError {
+      return getHumanReadableError(fallbackError.primaryError)
+    }
+
     // First check if it's an NSError with a domain and code we recognize
     if let nsError = error as NSError? {
       // For HTTP errors, check if we have a specific error message in userInfo

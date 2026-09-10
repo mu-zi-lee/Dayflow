@@ -68,7 +68,8 @@ extension OllamaProvider {
   }
 
   func callChatAPI(
-    _ request: ChatRequest, operation: String, batchId: Int64? = nil, maxRetries: Int = 3
+    _ request: ChatRequest, operation: String, batchId: Int64? = nil, maxRetries: Int = 3,
+    timeoutInterval: TimeInterval = 60.0
   ) async throws -> ChatResponse {
     guard let url = LocalEndpointUtilities.chatCompletionsURL(baseURL: endpoint) else {
       throw NSError(
@@ -87,7 +88,8 @@ extension OllamaProvider {
       var didLogTiming = false
       var apiStart: Date?
       do {
-        let urlRequest = try makeChatURLRequest(request, url: url)
+        let urlRequest = try makeChatURLRequest(
+          request, url: url, timeoutInterval: timeoutInterval)
 
         let start = Date()
         apiStart = start

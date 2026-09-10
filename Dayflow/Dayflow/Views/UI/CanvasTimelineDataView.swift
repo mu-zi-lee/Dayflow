@@ -13,6 +13,7 @@ private let cachedTimeFormatter: DateFormatter = {
 
 private struct CanvasConfig {
   static let timeColumnWidth: CGFloat = 60
+  static let collapsedAndroidLaneWidth: CGFloat = 44
   static let startHour: Int = 4  // 4 AM baseline
   static let endHour: Int = 28  // 4 AM next day
 }
@@ -72,6 +73,7 @@ struct CanvasTimelineDataView: View {
   let cardPressedScale: CGFloat
 
   @Environment(\.dayflowTheme) private var theme
+  @AppStorage("timelineAndroidLaneCollapsed") private var isAndroidLaneCollapsed = false
   @State private var selectedCardId: String? = nil
   @State private var positionedActivities: [CanvasPositionedActivity] = []
   @State private var recordingProjection: TimelineRecordingProjectionWindow?
@@ -145,6 +147,14 @@ struct CanvasTimelineDataView: View {
       .onChange(of: refreshTrigger) { loadActivities() }
       .onChange(of: appState.isRecording) { loadActivities(animate: false) }
       .onChange(of: hourHeight) { loadActivities(animate: false) }
+      .onChange(of: isAndroidLaneCollapsed) { _, isCollapsed in
+        if isCollapsed, selectedActivity?.platform == .android {
+          clearSelection()
+        }
+        DispatchQueue.main.async {
+          updateWeeklyHoursIntersection()
+        }
+      }
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in
@@ -216,10 +226,45 @@ struct CanvasTimelineDataView: View {
       Rectangle()
         .fill(Color.black.opacity(0.08))
         .frame(width: 1, height: 18)
-      deviceLaneLabel("Android", systemImage: "smartphone")
+      androidLaneToggle
     }
     .frame(height: 30)
     .padding(.leading, contentLeadingInset)
+  }
+
+  @ViewBuilder
+  private var androidLaneToggle: some View {
+    let toggle = Button {
+      withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+        isAndroidLaneCollapsed.toggle()
+      }
+    } label: {
+      HStack(spacing: isAndroidLaneCollapsed ? 4 : 6) {
+        Image(systemName: "smartphone")
+          .font(.system(size: 11, weight: .medium))
+        if !isAndroidLaneCollapsed {
+          Text("Android")
+            .font(.custom("Figtree", size: 12).weight(.semibold))
+        }
+        Image(systemName: isAndroidLaneCollapsed ? "chevron.left" : "chevron.right")
+          .font(.system(size: 8, weight: .bold))
+          .opacity(0.6)
+      }
+      .foregroundStyle(Color(hex: "594838").opacity(0.82))
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(isAndroidLaneCollapsed ? "Show Android timeline" : "Collapse Android timeline")
+    .accessibilityLabel(
+      isAndroidLaneCollapsed ? "Show Android timeline" : "Collapse Android timeline")
+    .pointingHandCursor()
+
+    if isAndroidLaneCollapsed {
+      toggle.frame(width: CanvasConfig.collapsedAndroidLaneWidth)
+    } else {
+      toggle.frame(minWidth: 0, maxWidth: .infinity)
+    }
   }
 
   private func deviceLaneLabel(_ title: String, systemImage: String) -> some View {
@@ -439,7 +484,19 @@ struct CanvasTimelineDataView: View {
       Rectangle()
         .fill(Color.black.opacity(0.08))
         .frame(width: 1)
-      cardsLayer(for: .android)
+      if isAndroidLaneCollapsed {
+        Color.clear
+          .frame(width: CanvasConfig.collapsedAndroidLaneWidth)
+          .contentShape(Rectangle())
+          .onTapGesture {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+              isAndroidLaneCollapsed = false
+            }
+          }
+          .pointingHandCursor()
+      } else {
+        cardsLayer(for: .android)
+      }
     }
   }
 
@@ -496,30 +553,38 @@ struct CanvasTimelineDataView: View {
         recordingStatusCard(
           for: .macOS,
           laneX: metrics.macLaneX,
-          laneWidth: metrics.laneWidth
+          laneWidth: metrics.macLaneWidth
         )
-        recordingStatusCard(
-          for: .android,
-          laneX: metrics.androidLaneX,
-          laneWidth: metrics.laneWidth
-        )
+        if !isAndroidLaneCollapsed {
+          recordingStatusCard(
+            for: .android,
+            laneX: metrics.androidLaneX,
+            laneWidth: metrics.androidLaneWidth
+          )
+        }
       }
     }
     .allowsHitTesting(false)
   }
 
   private func statusLaneMetrics(totalWidth: CGFloat) -> (
-    laneWidth: CGFloat,
+    macLaneWidth: CGFloat,
+    androidLaneWidth: CGFloat,
     macLaneX: CGFloat,
     androidLaneX: CGFloat
   ) {
     let dividerWidth: CGFloat = 1
     let lanesWidth = max(0, totalWidth - CanvasConfig.timeColumnWidth - dividerWidth)
-    let laneWidth = lanesWidth / 2
+    let androidLaneWidth =
+      isAndroidLaneCollapsed
+      ? min(CanvasConfig.collapsedAndroidLaneWidth, lanesWidth)
+      : lanesWidth / 2
+    let macLaneWidth = max(0, lanesWidth - androidLaneWidth)
     return (
-      laneWidth: laneWidth,
+      macLaneWidth: macLaneWidth,
+      androidLaneWidth: androidLaneWidth,
       macLaneX: CanvasConfig.timeColumnWidth,
-      androidLaneX: CanvasConfig.timeColumnWidth + laneWidth + dividerWidth
+      androidLaneX: CanvasConfig.timeColumnWidth + macLaneWidth + dividerWidth
     )
   }
 

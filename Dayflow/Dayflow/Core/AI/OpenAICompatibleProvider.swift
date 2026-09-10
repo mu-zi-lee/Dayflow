@@ -10,6 +10,14 @@ final class OpenAICompatibleProvider: ChatGPTTimelinePromptSupporting {
   private let configuration: OpenAICompatibleRuntimeConfiguration
   private let completion: Completion?
 
+  /// Reasoning models can need more than the short local-model request budget
+  /// when generating cards from a full timeline window.
+  static let cardGenerationTimeoutInterval: TimeInterval = 180.0
+
+  static func timeoutInterval(for operation: String) -> TimeInterval {
+    operation == "generate_cards" ? cardGenerationTimeoutInterval : 60.0
+  }
+
   init(configuration: OpenAICompatibleRuntimeConfiguration, completion: Completion? = nil) {
     self.configuration = configuration
     self.transport = OllamaProvider(openAICompatible: configuration)
@@ -42,7 +50,12 @@ final class OpenAICompatibleProvider: ChatGPTTimelinePromptSupporting {
   {
     if let completion { return try await completion(request, operation, batchId) }
     let response = try await transport.callChatAPI(
-      request, operation: operation, batchId: batchId, maxRetries: 1)
+      request,
+      operation: operation,
+      batchId: batchId,
+      maxRetries: 1,
+      timeoutInterval: Self.timeoutInterval(for: operation)
+    )
     return response.choices.first?.message.content ?? ""
   }
 
