@@ -50,6 +50,12 @@ final class UpdaterManager: NSObject, ObservableObject {
       "[Sparkle] Info SUPublicEDKey = \(Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") ?? "nil")"
     )
 
+    // This fork is updated manually after syncing with upstream. Keep both
+    // the scheduled checks and automatic installation disabled even if an
+    // older Sparkle preference on this Mac still has them enabled.
+    updater.automaticallyChecksForUpdates = false
+    updater.automaticallyDownloadsUpdates = false
+
     do {
       try updater.start()
       print("[Sparkle] updater.start() OK")
