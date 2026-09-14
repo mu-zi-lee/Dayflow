@@ -13,7 +13,7 @@
 //                      {id, ok, payload|error}         // reply to a command
 //                      | {event, payload})             // unsolicited event
 //
-//  Commands: ready, getToken, state, simulateDistraction, openExternal.
+//  Commands: ready, getToken, state, simulateDistraction, getTimeline, openExternal.
 //  Events:   nativeState, overlayAction.
 //
 
@@ -132,6 +132,19 @@ struct FlowWebView: NSViewRepresentable {
         FlowSessionMirror.shared.simulateDistraction()
         reply(id: id, payload: [:])
 
+      case "getTimeline":
+        // The session summary wants the agent's activity timeline: hand over
+        // whatever the last update produced, right away (no model turn, no
+        // waiting on an in-flight tick).
+        let timeline = FlowSessionTimeline.shared
+        timeline.finish()
+        reply(
+          id: id,
+          payload: [
+            "activities": timeline.bridgePayload,
+            "file": timeline.fileURL.path,
+          ])
+
       case "openExternal":
         if let urlString = payload["url"] as? String, let url = URL(string: urlString),
           url.scheme == "https" || url.scheme == "http"
@@ -229,6 +242,20 @@ struct FlowWebView: NSViewRepresentable {
         }
       }
       return nil
+    }
+
+    // "Add more to my plan" talks to Flow over the microphone. Grant the
+    // Flow origin's capture request straight through; the system's own
+    // microphone consent (NSMicrophoneUsageDescription) still applies.
+    nonisolated func webView(
+      _ webView: WKWebView,
+      requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+      initiatedByFrame frame: WKFrameInfo,
+      type: WKMediaCaptureType,
+      decisionHandler: @escaping (WKPermissionDecision) -> Void
+    ) {
+      let allowed = type == .microphone && origin.host == FlowWebConfiguration.url.host
+      decisionHandler(allowed ? .grant : .deny)
     }
 
     nonisolated func webView(

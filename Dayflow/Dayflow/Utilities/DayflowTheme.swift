@@ -23,9 +23,9 @@ enum DayflowAppearance: String, CaseIterable, Identifiable {
 
   var title: String {
     switch self {
-    case .system: return "System"
-    case .light: return "Light"
-    case .dark: return "Dark"
+    case .system: return String(localized: "System")
+    case .light: return String(localized: "Light")
+    case .dark: return String(localized: "Dark")
     }
   }
 
@@ -45,8 +45,9 @@ final class SystemAppearanceObserver: ObservableObject {
   private var observation: NSKeyValueObservation?
 
   init() {
+    let app = NSApplication.shared
     colorScheme = Self.currentColorScheme
-    observation = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+    observation = app.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
       Task { @MainActor [weak self] in
         self?.colorScheme = Self.currentColorScheme
       }
@@ -54,7 +55,7 @@ final class SystemAppearanceObserver: ObservableObject {
   }
 
   static var currentColorScheme: ColorScheme {
-    NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    NSApplication.shared.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
       ? .dark : .light
   }
 }

@@ -85,21 +85,28 @@ struct SettingsStorageTabView: View {
     let isRecording = permissionGranted && recordingEnabled
     let recorderStatus: SettingsStatusDot.State =
       isRecording ? .good : (permissionGranted ? .idle : .bad)
-    let recorderLabel = isRecording ? "Active" : (permissionGranted ? "Idle" : "Blocked")
+    let recorderLabel =
+      isRecording
+      ? String(localized: "Active")
+      : (permissionGranted
+        ? String(localized: "Idle")
+        : String(
+          localized: "Permission required",
+          comment: "Screen recording is blocked because permission has not been granted."))
 
     return SettingsSection(
-      title: "Recording status",
-      subtitle: "Ensure Dayflow can capture your screen."
+      title: String(localized: "Recording status"),
+      subtitle: String(localized: "Ensure Dayflow can capture your screen.")
     ) {
       VStack(alignment: .leading, spacing: 0) {
-        SettingsRow(label: "Screen recording permission") {
+        SettingsRow(label: String(localized: "Screen recording permission")) {
           SettingsStatusDot(
             state: permissionGranted ? .good : .bad,
-            label: permissionGranted ? "Granted" : "Missing"
+            label: permissionGranted ? String(localized: "Granted") : String(localized: "Missing")
           )
         }
 
-        SettingsRow(label: "Recorder", showsDivider: false) {
+        SettingsRow(label: String(localized: "Recorder"), showsDivider: false) {
           SettingsStatusDot(
             state: recorderStatus,
             label: recorderLabel
@@ -108,13 +115,14 @@ struct SettingsStorageTabView: View {
 
         HStack(spacing: 14) {
           SettingsPrimaryButton(
-            title: viewModel.isRefreshingStorage ? "Checking…" : "Run status check",
+            title: viewModel.isRefreshingStorage
+              ? String(localized: "Checking…") : String(localized: "Run status check"),
             isLoading: viewModel.isRefreshingStorage,
             action: viewModel.runStorageStatusCheck
           )
 
           if let last = viewModel.lastStorageCheck {
-            SettingsMetadata(text: "Last checked \(relativeDate(last))")
+            SettingsMetadata(text: String(localized: "Last checked \(relativeDate(last))"))
           }
         }
         .padding(.top, 18)
@@ -126,11 +134,14 @@ struct SettingsStorageTabView: View {
 
   private var recordingQualitySection: some View {
     SettingsSection(
-      title: "Recording quality",
-      subtitle: "Higher resolution and more frequent captures use more disk."
+      title: String(localized: "Recording quality"),
+      subtitle: String(localized: "Higher resolution and more frequent captures use more disk.")
     ) {
       VStack(alignment: .leading, spacing: 0) {
-        SettingsRow(label: "Resolution", subtitle: "Height each frame is scaled to") {
+        SettingsRow(
+          label: String(localized: "Resolution"),
+          subtitle: String(localized: "Height each frame is scaled to")
+        ) {
           settingsMenu(
             selected: ScreenshotConfig.label(forHeight: viewModel.captureHeight),
             options: ScreenshotConfig.heightOptions.map {
@@ -141,7 +152,8 @@ struct SettingsStorageTabView: View {
         }
 
         SettingsRow(
-          label: "Capture frequency", subtitle: "How often a frame is taken", showsDivider: false
+          label: String(localized: "Capture frequency"),
+          subtitle: String(localized: "How often a frame is taken"), showsDivider: false
         ) {
           settingsMenu(
             selected: ScreenshotConfig.label(forInterval: viewModel.captureInterval),
@@ -199,13 +211,13 @@ struct SettingsStorageTabView: View {
 
   private var diskUsageSection: some View {
     SettingsSection(
-      title: "Disk usage",
-      subtitle: "Open folders or adjust per-type storage caps."
+      title: String(localized: "Disk usage"),
+      subtitle: String(localized: "Open folders or adjust per-type storage caps.")
     ) {
       VStack(alignment: .leading, spacing: 0) {
         usageRow(
           category: .macRecordings,
-          label: "Mac recordings",
+          label: String(localized: "Mac recordings"),
           size: viewModel.macRecordingsUsageBytes,
           limitIndex: viewModel.macRecordingsLimitIndex,
           limitBytes: viewModel.macRecordingsLimitBytes,
@@ -213,7 +225,7 @@ struct SettingsStorageTabView: View {
         )
         usageRow(
           category: .androidRecordings,
-          label: "Android recordings",
+          label: String(localized: "Android recordings"),
           size: viewModel.androidRecordingsUsageBytes,
           limitIndex: viewModel.androidRecordingsLimitIndex,
           limitBytes: viewModel.androidRecordingsLimitBytes,
@@ -221,7 +233,7 @@ struct SettingsStorageTabView: View {
         )
         usageRow(
           category: .timelapses,
-          label: "Timelapses",
+          label: String(localized: "Timelapses"),
           size: viewModel.timelapseUsageBytes,
           limitIndex: viewModel.timelapsesLimitIndex,
           limitBytes: viewModel.timelapsesLimitBytes,
@@ -272,7 +284,7 @@ struct SettingsStorageTabView: View {
         Spacer(minLength: 12)
 
         HStack(spacing: 8) {
-          SettingsSecondaryButton(title: "Open", action: action)
+          SettingsSecondaryButton(title: String(localized: "Open"), action: action)
 
           Menu {
             ForEach(StorageSettingsViewModel.storageOptions) { candidate in
