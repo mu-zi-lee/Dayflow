@@ -8747,6 +8747,15 @@
         }
       }
     },
+    "Android" : {
+
+    },
+    "Android pairing QR code" : {
+
+    },
+    "Android recordings" : {
+
+    },
     "Another Dayflow account request is already running." : {
       "localizations" : {
         "de" : {
@@ -9991,6 +10000,9 @@
           }
         }
       }
+    },
+    "Backups include your timeline database, local screenshots/recordings, timelapses, categories, and safe local preferences. API keys and account tokens are not included." : {
+
     },
     "Balanced" : {
       "extractionState" : "stale",
@@ -15911,6 +15923,9 @@
           }
         }
       }
+    },
+    "Collapse Android timeline" : {
+
     },
     "com.dayflow.filmstripgen.sync" : {
       "extractionState" : "stale",
@@ -22983,6 +22998,9 @@
         }
       }
     },
+    "Device" : {
+
+    },
     "Different email" : {
       "localizations" : {
         "de" : {
@@ -26856,6 +26874,9 @@
         }
       }
     },
+    "Export Markdown for archives and team notes, or export a calendar file that opens in Apple Calendar." : {
+
+    },
     "Export start date" : {
       "localizations" : {
         "de" : {
@@ -26903,6 +26924,7 @@
       }
     },
     "Export timeline" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -32638,6 +32660,12 @@
         }
       }
     },
+    "Import Dayflow backup?" : {
+
+    },
+    "Import on next launch" : {
+
+    },
     "In progress" : {
       "localizations" : {
         "de" : {
@@ -34808,6 +34836,9 @@
         }
       }
     },
+    "Last sync %@" : {
+
+    },
     "Last updated: %@" : {
       "localizations" : {
         "de" : {
@@ -36146,6 +36177,19 @@
           }
         }
       }
+    },
+    "Mac cap: %@ • Android cap: %@ • Timelapse cap: %@. Lowering a cap immediately deletes the oldest files for that type. Timeline card text stays preserved. Please avoid deleting files manually so you do not remove Dayflow's database." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Mac cap: %1$@ • Android cap: %2$@ • Timelapse cap: %3$@. Lowering a cap immediately deletes the oldest files for that type. Timeline card text stays preserved. Please avoid deleting files manually so you do not remove Dayflow's database."
+          }
+        }
+      }
+    },
+    "Mac recordings" : {
+
     },
     "Mail" : {
       "extractionState" : "stale",
@@ -38733,6 +38777,9 @@
           }
         }
       }
+    },
+    "No Android device paired" : {
+
     },
     "No API key found. Enter your API key first." : {
       "localizations" : {
@@ -43669,6 +43716,9 @@
         }
       }
     },
+    "Port %u" : {
+
+    },
     "Preparing timelapse..." : {
       "localizations" : {
         "de" : {
@@ -45429,6 +45479,9 @@
         }
       }
     },
+    "Ready on local network" : {
+
+    },
     "Ready to use" : {
       "localizations" : {
         "de" : {
@@ -45474,6 +45527,9 @@
           }
         }
       }
+    },
+    "Receiver unavailable" : {
+
     },
     "Recent highlights" : {
       "localizations" : {
@@ -45614,6 +45670,7 @@
       }
     },
     "Recording cap: %@ • Timelapse cap: %@. Lowering a cap immediately deletes the oldest files for that type. Timeline card text stays preserved. Please avoid deleting files manually so you do not remove Dayflow's database." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -45850,6 +45907,7 @@
       }
     },
     "Recordings" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -47011,6 +47069,9 @@
           }
         }
       }
+    },
+    "Remove Android device" : {
+
     },
     "Renews" : {
       "localizations" : {
@@ -50942,6 +51003,9 @@
           }
         }
       }
+    },
+    "Show Android timeline" : {
+
     },
     "Show app/website icons in timeline" : {
       "localizations" : {
@@ -57178,6 +57242,9 @@
         }
       }
     },
+    "This will replace the current local Dayflow data the next time the app launches. Your current data will be kept as a safety copy." : {
+
+    },
     "Thread %lld of %lld · %@" : {
       "localizations" : {
         "de" : {
@@ -60966,6 +61033,7 @@
       }
     },
     "Use Markdown exports to archive in Notion, share with teammates, or paste into ChatGPT / Claude / Gemini for deeper analysis." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

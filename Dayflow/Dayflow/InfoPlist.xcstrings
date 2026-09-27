@@ -80,6 +80,18 @@
       },
       "shouldTranslate" : false
     },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Privacy - Local Network Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Dayflow receives encrypted screenshots from your paired Android device on your local network."
+          }
+        }
+      }
+    },
     "NSMicrophoneUsageDescription" : {
       "comment" : "Privacy - Microphone Usage Description",
       "extractionState" : "extracted_with_value",
