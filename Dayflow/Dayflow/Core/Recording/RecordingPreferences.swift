@@ -8,7 +8,7 @@ enum ScreenshotConfig {
   /// Posted on the main queue whenever a capture preference changes.
   static let didChange = Notification.Name("ScreenshotConfigDidChange")
 
-  static let intervalOptions: [TimeInterval] = [1, 5, 10, 20, 30, 60]
+  static let intervalOptions: [TimeInterval] = [1, 3, 5, 10, 20, 30, 60]
   static let heightOptions: [Int] = [720, 1080]
 
   static let defaultInterval: TimeInterval = 10
