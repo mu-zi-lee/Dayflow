@@ -97,21 +97,21 @@ enum WhatsNewConfiguration {
   private static let seenKey = "lastSeenWhatsNewVersion"
 
   /// Override with the specific release number you want to show.
-  private static let versionOverride: String? = "2.3.0"
+  private static let versionOverride: String? = "2.6.0"
 
   /// Update this content before shipping each release. Return nil to disable the modal entirely.
   static var configuredRelease: ReleaseNote? {
     ReleaseNote(
       version: targetVersion,
-      title: String(localized: "A fresh look, light and dark + a new view for your agents"),
+      title: String(localized: "Flow is in beta!"),
       highlights: [
         String(
           localized:
-            "We’re giving Dayflow’s UI a light refresh, including a much-requested feature: dark mode! It follows your system preference, but you can also choose light or dark manually in Settings → Other."
+            "Meet Flow, our new tool to help you plan your day and stay focused. Interested in trying it? Open Flow in the sidebar and join the waitlist for early access."
         ),
         String(
           localized:
-            "The Agents tab now brings your Codex and Claude Code sessions into Dayflow, with a timeline, token usage, and estimated API costs."
+            "Bring your preferred categories into focus. Click the categories above your timeline to dim the ones you don't need, in both Day and Week views."
         ),
       ],
       socialPreview: nil,
@@ -119,14 +119,7 @@ enum WhatsNewConfiguration {
       previewImageNames: [],
       betaSignup: nil,
       cta: nil,
-      githubStar: ReleaseNoteGitHubStar(
-        title: String(localized: "Enjoying Dayflow?"),
-        description:
-          String(
-            localized:
-              "If Dayflow has been useful and you'd like to help more people find it, a star on GitHub goes a long way."
-          )
-      ),
+      githubStar: nil,
       showsWeeklyFeedbackSurvey: false
     )
   }
@@ -796,6 +789,7 @@ struct WhatsNewView: View {
     case .starred:
       githubStarState = .starred
       githubStarOutcome = "already_starred"
+      GitHubStarPromptState.markDone()
     case .notStarred:
       githubStarState = .readyToStar
       githubStarOutcome = "shown_not_clicked"
@@ -825,6 +819,8 @@ struct WhatsNewView: View {
   }
 
   private func captureGitHubStarClick(method: String) {
+    // Any click ends the recurring star reminder.
+    GitHubStarPromptState.markDone()
     AnalyticsService.shared.capture(
       "whats_new_github_star_clicked",
       [

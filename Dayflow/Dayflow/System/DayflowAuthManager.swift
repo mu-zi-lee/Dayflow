@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Security
 
@@ -275,10 +276,26 @@ final class DayflowAuthManager: ObservableObject {
   @Published private(set) var pendingReferralCode: String?
 
   private let endpoint: String?
+  private var activationObserver: AnyCancellable?
+  private var checkoutRefreshTask: Task<Void, Never>?
+  private var awaitingCheckout = false
 
   private init() {
     self.endpoint = DayflowBackendConfiguration.endpoint()
     self.pendingReferralCode = UserDefaults.standard.string(forKey: Self.pendingReferralCodeKey)
+    activationObserver = NotificationCenter.default.publisher(
+      for: NSApplication.didBecomeActiveNotification
+    )
+    .sink { [weak self] _ in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        if self.awaitingCheckout {
+          self.refreshAfterCheckout()
+        } else if self.isSignedIn {
+          await self.refreshAccount()
+        }
+      }
+    }
   }
 
   var isSignedIn: Bool {
@@ -416,6 +433,7 @@ final class DayflowAuthManager: ObservableObject {
   }
 
   func refreshAccount() async {
+    hasLoadedStoredSession = true
     guard let token = retrieveSessionToken() else {
       resetSignedOutState(status: String(localized: "Signed out"))
       return
@@ -446,7 +464,7 @@ final class DayflowAuthManager: ObservableObject {
       return
     }
 
-    await perform {
+    let error = await perform {
       var request = try makeRequest(path: "/v1/billing/checkout", method: "POST")
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
       request.httpBody = try JSONEncoder().encode(BillingCheckoutRequest(interval: interval))
@@ -456,9 +474,35 @@ final class DayflowAuthManager: ObservableObject {
         throw DayflowAuthError.message("Stripe returned an invalid checkout link.")
       }
 
+      awaitingCheckout = true
       NSWorkspace.shared.open(url)
       statusText = String(localized: "Opened Stripe checkout in your browser.")
       errorText = nil
+    }
+    // Recover outside perform: its busy guard would discard a nested refresh.
+    if let error, case DayflowAuthError.backend(let statusCode, _, _) = error, statusCode == 409 {
+      awaitingCheckout = true
+      refreshAfterCheckout()
+    }
+  }
+
+  private func refreshAfterCheckout() {
+    checkoutRefreshTask?.cancel()
+    checkoutRefreshTask = Task { [weak self] in
+      // Stripe's webhook can arrive after the browser hands focus back to the app.
+      // Keep retries bounded, and try again on the next activation if still pending.
+      for attempt in 0..<12 {
+        guard !Task.isCancelled, let self, self.isSignedIn else { return }
+        await self.refreshAccount()
+        guard !Task.isCancelled else { return }
+        if self.entitlements.plan == "pro" && self.entitlements.status == "active" {
+          self.awaitingCheckout = false
+          return
+        }
+        if attempt < 11 {
+          do { try await Task.sleep(for: .seconds(5)) } catch { return }
+        }
+      }
     }
   }
 
@@ -638,6 +682,38 @@ final class DayflowAuthManager: ObservableObject {
     }
   }
 
+  /// Adds an email to the Flow early-access waitlist. Works signed out.
+  /// Doesn't go through `perform` so it can't clash with account requests
+  /// or overwrite the account screen's error text.
+  func joinFlowWaitlist(email emailAddress: String) async throws {
+    let email = normalizedEmail(emailAddress)
+    guard isLikelyEmail(email) else {
+      throw DayflowAuthError.message(String(localized: "Enter a valid email address."))
+    }
+
+    var request = try makeRequest(path: "/v1/flow/waitlist", method: "POST")
+    request.httpBody = try JSONEncoder().encode(FlowWaitlistRequest(email: email))
+    let _: FlowWaitlistResponse = try await send(request)
+  }
+
+  /// Redeems a Flow access code for the signed-in account. On success the
+  /// backend whitelists the account, so Flow unlocks right away.
+  func redeemFlowAccessCode(_ code: String) async throws {
+    guard let token = retrieveSessionToken() else {
+      throw DayflowAuthError.message(String(localized: "Sign in first to use an access code."))
+    }
+    let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedCode.isEmpty else {
+      throw DayflowAuthError.message(String(localized: "Enter your access code."))
+    }
+
+    var request = try makeRequest(path: "/v1/flow/access-code", method: "POST")
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    request.httpBody = try JSONEncoder().encode(FlowAccessCodeRequest(code: trimmedCode))
+    let response: FlowAccessCodeResponse = try await send(request)
+    flowEnabled = response.flowEnabled
+  }
+
   func sessionToken() -> String? {
     Self.storedSessionToken()
   }
@@ -736,6 +812,9 @@ final class DayflowAuthManager: ObservableObject {
   }
 
   private func resetSignedOutState(status: String) {
+    checkoutRefreshTask?.cancel()
+    checkoutRefreshTask = nil
+    awaitingCheckout = false
     user = nil
     entitlements = .free
     flowEnabled = false
@@ -974,6 +1053,28 @@ private struct ReferralUsageResponse: Codable {
     case ok
     case usageHours = "usage_hours"
     case unlocked
+  }
+}
+
+private struct FlowWaitlistRequest: Codable {
+  let email: String
+}
+
+private struct FlowWaitlistResponse: Codable {
+  let ok: Bool
+}
+
+private struct FlowAccessCodeRequest: Codable {
+  let code: String
+}
+
+private struct FlowAccessCodeResponse: Codable {
+  let ok: Bool
+  let flowEnabled: Bool
+
+  private enum CodingKeys: String, CodingKey {
+    case ok
+    case flowEnabled = "flow_enabled"
   }
 }
 

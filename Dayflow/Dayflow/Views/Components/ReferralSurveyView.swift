@@ -16,6 +16,24 @@ struct ReferralSurveyView: View {
   private let externalSelectedReferral: Binding<ReferralOption?>?
   private let externalCustomReferral: Binding<String>?
 
+  private var selectedReferralBinding: Binding<ReferralOption?> {
+    externalSelectedReferral ?? $internalSelectedReferral
+  }
+
+  private var customReferralBinding: Binding<String> {
+    externalCustomReferral ?? $internalCustomReferral
+  }
+
+  private var selectedReferral: ReferralOption? {
+    get { selectedReferralBinding.wrappedValue }
+    nonmutating set { selectedReferralBinding.wrappedValue = newValue }
+  }
+
+  private var customReferral: String {
+    get { customReferralBinding.wrappedValue }
+    nonmutating set { customReferralBinding.wrappedValue = newValue }
+  }
+
   init(
     prompt: String,
     submitLabel: String = String(localized: "Submit"),
@@ -31,29 +49,13 @@ struct ReferralSurveyView: View {
     self.showSubmitButton = showSubmitButton
     self.onSubmit = onSubmit
 
-    if let selectedReferral, let customReferral {
+    if let selectedReferral = selectedReferral, let customReferral = customReferral {
       externalSelectedReferral = selectedReferral
       externalCustomReferral = customReferral
     } else {
       externalSelectedReferral = nil
       externalCustomReferral = nil
     }
-  }
-
-  private var selectedReferralBinding: Binding<ReferralOption?> {
-    externalSelectedReferral ?? $internalSelectedReferral
-  }
-
-  private var customReferralBinding: Binding<String> {
-    externalCustomReferral ?? $internalCustomReferral
-  }
-
-  private var selectedReferral: ReferralOption? {
-    selectedReferralBinding.wrappedValue
-  }
-
-  private var customReferral: String {
-    customReferralBinding.wrappedValue
   }
 
   var body: some View {
@@ -167,11 +169,11 @@ struct ReferralSurveyView: View {
   }
 
   private func select(_ option: ReferralOption) {
-    selectedReferralBinding.wrappedValue = option
+    selectedReferral = option
     hasSubmitted = false
 
     if !option.requiresDetail {
-      customReferralBinding.wrappedValue = ""
+      customReferral = ""
     }
   }
 
