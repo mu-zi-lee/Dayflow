@@ -72,6 +72,8 @@ final class AppleCalendarSync: ObservableObject {
   func start() {
     guard !started else { return }
     started = true
+    // Upgrade existing today-only subscriptions to the full timeline as well.
+    defaults.set(0.0, forKey: Key.start)
     NotificationCenter.default.publisher(for: .EKEventStoreChanged)
       .merge(with: NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification))
       .merge(with: NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification))
@@ -127,10 +129,7 @@ final class AppleCalendarSync: ObservableObject {
     }
     do {
       _ = try destinationCalendar(createIfNeeded: true)
-      if defaults.object(forKey: Key.start) == nil {
-        let (_, start, _) = Date().getDayInfoFor4AMBoundary()
-        defaults.set(start.timeIntervalSince1970, forKey: Key.start)
-      }
+      defaults.set(0.0, forKey: Key.start)
       isEnabled = true
       defaults.set(true, forKey: Key.enabled)
       errorMessage = nil
@@ -142,6 +141,13 @@ final class AppleCalendarSync: ObservableObject {
 
   var hasAccess: Bool {
     EKEventStore.authorizationStatus(for: .event) == .fullAccess
+  }
+
+  func syncAllHistory() {
+    guard isEnabled, hasAccess else { return }
+    defaults.set(0.0, forKey: Key.start)
+    errorMessage = nil
+    observeTimeline()
   }
 
   private func refreshAccounts() {
@@ -226,7 +232,8 @@ final class AppleCalendarSync: ObservableObject {
 
       // Date queries recover events if a prior save completed before the ID map was persisted.
       // EventKit limits queries to four years; use yearly windows for long-running installations.
-      var cursor = Date(timeIntervalSince1970: defaults.double(forKey: Key.start))
+      let earliestStart = activities.map(\.startTs).min() ?? Date().timeIntervalSince1970
+      var cursor = Date(timeIntervalSince1970: earliestStart).addingTimeInterval(-86400)
       let end = max(Date(), activities.map { Date(timeIntervalSince1970: $0.endTs) }.max() ?? Date())
         .addingTimeInterval(86400)
       var seen: Set<String> = []

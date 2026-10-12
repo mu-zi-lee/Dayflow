@@ -80,4 +80,18 @@ final class AppleCalendarSyncTests: XCTestCase {
       summary: "Summary", detailedSummary: "Summary", category: "")
     XCTAssertEqual(activity.notes, "Summary")
   }
+
+  func testFullHistoryIncludesOldCardsAndExcludesDeletedCards() throws {
+    let queue = try database()
+    try queue.write { db in
+      try db.execute(sql: """
+        INSERT INTO timeline_cards (id, start_ts, end_ts, title, is_deleted) VALUES
+          (1, 100, 200, 'Old activity', 0),
+          (2, 1792022100, 1792025700, 'Recent activity', 0),
+          (3, 300, 400, 'Deleted activity', 1)
+        """)
+    }
+    let snapshot = try queue.read { try CalendarActivity.fetchSnapshot(in: $0, since: 0) }
+    XCTAssertEqual(snapshot.map(\.id), [1, 2])
+  }
 }

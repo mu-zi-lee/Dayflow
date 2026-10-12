@@ -41,6 +41,13 @@ struct AppleCalendarSyncSettingsSection: View {
             .font(.custom("Figtree", size: 12))
             .foregroundStyle(SettingsStyle.statusGood)
         }
+        if sync.isEnabled && sync.hasAccess {
+          SettingsSecondaryButton(
+            title: "Sync all history",
+            systemImage: "arrow.triangle.2.circlepath",
+            action: sync.syncAllHistory
+          )
+        }
         if let error = sync.errorMessage {
           Text(error)
             .font(.custom("Figtree", size: 12))
