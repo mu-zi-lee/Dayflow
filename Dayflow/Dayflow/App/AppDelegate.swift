@@ -88,6 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     UserDefaults.standard.set(build, forKey: "lastRunBuild")
     statusBar = StatusBarController()
     androidSyncServer.start()
+    AppleCalendarSync.shared.start()
     LaunchAtLoginManager.shared.bootstrapDefaultPreference()
     deepLinkRouter = AppDeepLinkRouter()
 

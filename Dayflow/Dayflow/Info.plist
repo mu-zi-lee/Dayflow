@@ -23,6 +23,8 @@
 	<string>$(DAYFLOW_BACKEND_URL)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Dayflow uses Automation to focus or reopen your agent sessions in the terminal.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Dayflow syncs your activities to a dedicated Dayflow calendar and updates or removes its own events when your timeline changes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Dayflow listens while you talk to Flow about your plan. Audio is only used for that conversation.</string>
 	<key>NSScreenCaptureUsageDescription</key>
