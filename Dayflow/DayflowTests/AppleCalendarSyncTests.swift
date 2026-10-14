@@ -94,4 +94,20 @@ final class AppleCalendarSyncTests: XCTestCase {
     let snapshot = try queue.read { try CalendarActivity.fetchSnapshot(in: $0, since: 0) }
     XCTAssertEqual(snapshot.map(\.id), [1, 2])
   }
+
+  func testProcessingFailureCardsAreExcludedWithoutFilteringRealActivities() throws {
+    let queue = try database()
+    try queue.write { db in
+      try db.execute(sql: """
+        INSERT INTO timeline_cards (id, start_ts, end_ts, title, category) VALUES
+          (1, 100, 200, 'Processing failed', 'System'),
+          (2, 200, 300, ' PROCESSING FAILED ', ' system '),
+          (3, 300, 400, 'Idle', 'Idle'),
+          (4, 400, 500, 'Processing failed', 'Work'),
+          (5, 500, 600, 'System maintenance', 'System')
+        """)
+    }
+    let snapshot = try queue.read { try CalendarActivity.fetchSnapshot(in: $0, since: 0) }
+    XCTAssertEqual(snapshot.map(\.id), [3, 4, 5])
+  }
 }

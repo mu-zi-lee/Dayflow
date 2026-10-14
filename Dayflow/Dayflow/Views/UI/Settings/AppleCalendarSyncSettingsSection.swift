@@ -26,6 +26,25 @@ struct AppleCalendarSyncSettingsSection: View {
               }
             }
             .frame(maxWidth: 320)
+            .onChange(of: sync.selectedAccountID) { sync.refreshRecoveryCalendars() }
+          }
+          if sync.needsReconnect {
+            if !sync.recoveryCalendars.isEmpty {
+              Picker("Calendar", selection: $sync.selectedRecoveryCalendarID) {
+                ForEach(sync.recoveryCalendars) { calendar in
+                  Text(calendar.name).tag(calendar.id)
+                }
+                Text("Create a new Dayflow calendar").tag("")
+              }
+              .frame(maxWidth: 320)
+            }
+            SettingsSecondaryButton(
+              title: sync.selectedRecoveryCalendarID.isEmpty
+                ? "Create and reconnect Dayflow calendar" : "Reconnect Dayflow calendar",
+              systemImage: "arrow.triangle.2.circlepath",
+              isDisabled: sync.accounts.isEmpty,
+              action: sync.reconnectCalendar
+            )
           }
         }
         if sync.hasAccess || sync.isEnabled {
@@ -34,7 +53,7 @@ struct AppleCalendarSyncSettingsSection: View {
           ))
           .toggleStyle(.switch)
           .font(.custom("Figtree", size: 13))
-          .disabled(!sync.isEnabled && sync.calendarName == nil && sync.accounts.isEmpty)
+          .disabled(!sync.isEnabled && (sync.needsReconnect || sync.accounts.isEmpty))
         }
         if let date = sync.lastSyncAt {
           Text("Last synced \(date.formatted(date: .abbreviated, time: .shortened))")

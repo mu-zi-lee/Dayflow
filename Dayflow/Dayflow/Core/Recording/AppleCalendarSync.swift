@@ -25,6 +25,10 @@ struct CalendarActivity: Equatable, FetchableRecord, Decodable {
         COALESCE(category, '') AS category
       FROM timeline_cards
       WHERE is_deleted = 0 AND start_ts >= ? AND end_ts > start_ts
+        AND NOT (
+          LOWER(TRIM(COALESCE(category, ''))) = 'system'
+          AND LOWER(TRIM(title)) = 'processing failed'
+        )
       ORDER BY start_ts, id
       """, arguments: [start])
   }
@@ -46,6 +50,9 @@ final class AppleCalendarSync: ObservableObject {
   @Published private(set) var errorMessage: String?
   @Published private(set) var accounts: [Account] = []
   @Published private(set) var calendarName: String?
+  @Published private(set) var needsReconnect = false
+  @Published private(set) var recoveryCalendars: [Account] = []
+  @Published var selectedRecoveryCalendarID = ""
   @Published var selectedAccountID = ""
 
   private let store = EKEventStore()
@@ -150,9 +157,54 @@ final class AppleCalendarSync: ObservableObject {
     observeTimeline()
   }
 
+  func reconnectCalendar() {
+    guard hasAccess else { requestAccess(); return }
+    pendingSync?.cancel()
+    do {
+      guard let source = store.sources.first(where: { $0.sourceIdentifier == selectedAccountID }),
+        accounts.contains(where: { $0.id == selectedAccountID }) else {
+        throw SyncError.noAccount
+      }
+      let calendar: EKCalendar
+      if !selectedRecoveryCalendarID.isEmpty {
+        guard let existing = store.calendar(withIdentifier: selectedRecoveryCalendarID),
+          existing.source.sourceIdentifier == source.sourceIdentifier,
+          existing.title == "Dayflow", existing.allowsContentModifications else {
+          throw SyncError.destinationUnavailable
+        }
+        calendar = existing
+      } else {
+        calendar = EKCalendar(for: .event, eventStore: store)
+        calendar.title = "Dayflow"
+        calendar.source = source
+        try store.saveCalendar(calendar, commit: true)
+      }
+      // Preserve ownership so rebinding recovers existing events instead of duplicating them.
+      defaults.set(calendar.calendarIdentifier, forKey: Key.calendar)
+      lastSyncAt = nil
+      refreshAccounts()
+      errorMessage = nil
+      if isEnabled { observeTimeline() }
+    } catch {
+      errorMessage = error.localizedDescription
+      refreshAccounts()
+    }
+  }
+
+  func refreshRecoveryCalendars() {
+    recoveryCalendars = store.calendars(for: .event).filter {
+      $0.source.sourceIdentifier == selectedAccountID
+        && $0.title == "Dayflow" && $0.allowsContentModifications
+    }.map { Account(id: $0.calendarIdentifier, name: $0.title) }
+    if !recoveryCalendars.contains(where: { $0.id == selectedRecoveryCalendarID }) {
+      selectedRecoveryCalendarID = recoveryCalendars.first?.id ?? ""
+    }
+  }
+
   private func refreshAccounts() {
     guard hasAccess else {
       accounts = []
+      calendarName = nil
       return
     }
     let writableSources = Set(store.calendars(for: .event)
@@ -164,14 +216,20 @@ final class AppleCalendarSync: ObservableObject {
       selectedAccountID = accounts.first(where: { $0.name.localizedCaseInsensitiveContains("iCloud") })?.id
         ?? accounts.first?.id ?? ""
     }
-    if let id = defaults.string(forKey: Key.calendar), let calendar = store.calendar(withIdentifier: id) {
+    calendarName = nil
+    needsReconnect = defaults.string(forKey: Key.calendar) != nil
+    if let id = defaults.string(forKey: Key.calendar),
+      let calendar = store.calendar(withIdentifier: id), calendar.allowsContentModifications {
       calendarName = "\(calendar.title) (\(calendar.source.title))"
+      needsReconnect = false
     }
+    refreshRecoveryCalendars()
   }
 
   private func destinationCalendar(createIfNeeded: Bool) throws -> EKCalendar {
     if let id = defaults.string(forKey: Key.calendar) {
       guard let calendar = store.calendar(withIdentifier: id), calendar.allowsContentModifications else {
+        refreshAccounts()
         throw SyncError.destinationUnavailable
       }
       return calendar
@@ -295,6 +353,7 @@ final class AppleCalendarSync: ObservableObject {
       errorMessage = nil
     } catch {
       store.reset()
+      refreshAccounts()
       errorMessage = error.localizedDescription
     }
   }
@@ -307,7 +366,7 @@ final class AppleCalendarSync: ObservableObject {
       switch self {
       case .noAccount: return "Choose a writable calendar account."
       case .destinationUnavailable:
-        return "The Dayflow calendar is unavailable or read-only. Restore it or reconnect its account in Apple Calendar."
+        return "The Dayflow calendar is unavailable or read-only. Choose an account and reconnect the calendar."
       }
     }
   }
