@@ -75,6 +75,24 @@ struct SettingsOtherTabView: View {
           )
         }
 
+        SettingsRow(
+          label: String(localized: "Pause lengths"),
+          subtitle: String(localized: "The three timed options shown when you pause Dayflow.")
+        ) {
+          HStack(spacing: 6) {
+            ForEach(viewModel.pausePresetMinutes.indices, id: \.self) { index in
+              Picker("Pause length", selection: $viewModel.pausePresetMinutes[index]) {
+                ForEach(PausePresets.minuteOptions, id: \.self) { minutes in
+                  Text(verbatim: PauseDuration.timed(minutes: minutes).shortLabel).tag(minutes)
+                }
+              }
+              .pickerStyle(.menu)
+              .labelsHidden()
+              .frame(width: 78)
+            }
+          }
+        }
+
         SettingsRow(label: String(localized: "Share crash reports and anonymous usage data")) {
           SettingsToggle(isOn: $viewModel.analyticsEnabled)
         }
@@ -110,10 +128,22 @@ struct SettingsOtherTabView: View {
             String(
               localized:
                 "New and reprocessed timeline cards will pre-generate timelapse videos and store them on disk instead of building them on demand. Uses more storage and background processing."
-            ),
-          showsDivider: false
+            )
         ) {
           SettingsToggle(isOn: $viewModel.saveAllTimelapsesToDisk)
+        }
+
+        SettingsRow(
+          label: String(localized: "Getting started guide"),
+          subtitle: String(
+            localized:
+              "Replay the welcome tour and bring back the first-day checklist on your timeline."),
+          showsDivider: false
+        ) {
+          SettingsSecondaryButton(
+            title: String(localized: "Show again"),
+            action: { GettingStarted.replay() }
+          )
         }
       }
     }

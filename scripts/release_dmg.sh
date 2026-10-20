@@ -225,12 +225,21 @@ if command -v rg >/dev/null 2>&1; then
   if ! printf "%s" "$ENT_DUMP" | rg -q "com.apple.security.temporary-exception.mach-lookup.global-name"; then
     echo "WARNING: mach-lookup entitlement missing on app. Check entitlements substitution." >&2
   fi
-  if ! printf "%s" "$ENT_DUMP" | rg -q "-spks|teleportlabs.com.Dayflow-spks"; then
+  if ! printf "%s" "$ENT_DUMP" | rg -q -e "-spks|teleportlabs.com.Dayflow-spks"; then
     echo "WARNING: Sparkle status mach service (-spks) not present in entitlements." >&2
   fi
-  if ! printf "%s" "$ENT_DUMP" | rg -q "-spki|teleportlabs.com.Dayflow-spki"; then
+  if ! printf "%s" "$ENT_DUMP" | rg -q -e "-spki|teleportlabs.com.Dayflow-spki"; then
     echo "WARNING: Sparkle installer mach service (-spki) not present in entitlements." >&2
   fi
+fi
+
+# Without audio-input the hardened runtime denies the microphone silently and
+# Flow's voice planning fails for every user, so refuse to ship that.
+SIGNED_ENTS="${SANITIZED_DIR}/signed.entitlements"
+codesign -d --entitlements "${SIGNED_ENTS}" --xml "${SANITIZED_APP}" 2>/dev/null || true
+if [[ "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.device.audio-input' "${SIGNED_ENTS}" 2>/dev/null)" != "true" ]]; then
+  echo "ERROR: com.apple.security.device.audio-input entitlement missing on app; Flow voice planning would fail." >&2
+  exit 1
 fi
 
 echo "[6/8] Verifying signature…"

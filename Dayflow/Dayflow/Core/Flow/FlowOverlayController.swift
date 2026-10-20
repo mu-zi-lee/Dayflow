@@ -20,6 +20,7 @@ final class FlowOverlayController {
   /// What the panel was showing before it hid, so we can pick the matching
   /// exit clip (wave goodbye, climb out of the tub, fly off on the plane).
   private var lastPresentation: FlowOverlayPresentation = .hidden
+  private let backdrop = FlowDemoBackdrop()
 
   private init() {}
 
@@ -27,7 +28,12 @@ final class FlowOverlayController {
   func start() {
     cancellable = FlowSessionMirror.shared.$overlay
       .receive(on: DispatchQueue.main)
-      .sink { [weak self] presentation in
+      .sink { [weak self] _ in
+        // Act on what is showing now, not on the value this delivery carried:
+        // a hide followed straight away by a show (the Flow page re-running a
+        // step) would otherwise play the exit clip under a bubble that stays.
+        let presentation = FlowSessionMirror.shared.overlay
+        self?.backdrop.setShown(presentation.isDemo)
         if presentation == .hidden {
           self?.hidePanel()
         } else {
@@ -75,8 +81,8 @@ final class FlowOverlayController {
     switch presentation {
     case .hidden: return nil
     case .onBreak: return .bathEnd
-    case .nudge(_, true): return .fireEnd
-    case .sessionEnded, .toast, .nudge:
+    case .nudge(_, true), .demo(_, _, true): return .fireEnd
+    case .sessionEnded, .toast, .nudge, .demo:
       switch mirror.overlayVariant {
       case .side:
         return presentation == .sessionEnded ? .exitPlane : .randomExit
@@ -204,4 +210,83 @@ final class FlowOverlayController {
 private final class FlowOverlayPanel: NSPanel {
   override var canBecomeKey: Bool { false }
   override var canBecomeMain: Bool { false }
+}
+
+/// While onboarding shows off the pop-in, everything on the desktop except
+/// the app's own window and the creature is dimmed (50% black), so the
+/// eye goes to the corner the creature leans in from.
+@MainActor
+private final class FlowDemoBackdrop {
+  private var panels: [NSPanel] = []
+  private var pendingHide: DispatchWorkItem?
+
+  func setShown(_ shown: Bool) {
+    pendingHide?.cancel()
+    pendingHide = nil
+    if shown {
+      show()
+    } else if !panels.isEmpty {
+      // The two pop-ins hide the creature for a moment between them; stay up
+      // across that gap instead of flashing the desktop back.
+      let work = DispatchWorkItem { [weak self] in self?.hide() }
+      pendingHide = work
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+    }
+  }
+
+  private func show() {
+    guard panels.isEmpty else { return }
+    let appWindow =
+      NSApp.mainWindow
+      ?? NSApp.windows.first { $0.isVisible && $0.canBecomeMain && !($0 is NSPanel) }
+    for screen in NSScreen.screens {
+      // Everything under the menu bar, the way the design dims the desktop.
+      var frame = screen.frame
+      frame.size.height = screen.visibleFrame.maxY - frame.minY
+      let panel = FlowOverlayPanel(
+        contentRect: frame,
+        styleMask: [.borderless, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false
+      )
+      panel.isOpaque = false
+      panel.backgroundColor = .clear
+      panel.hasShadow = false
+      panel.level = .normal
+      panel.hidesOnDeactivate = false
+      panel.isReleasedWhenClosed = false
+      panel.collectionBehavior = [.fullScreenAuxiliary, .transient, .ignoresCycle]
+
+      let dim = NSView(frame: NSRect(origin: .zero, size: frame.size))
+      dim.wantsLayer = true
+      dim.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.5).cgColor
+      dim.autoresizingMask = [.width, .height]
+      panel.contentView = dim
+
+      panel.alphaValue = 0
+      if let appWindow {
+        panel.order(.below, relativeTo: appWindow.windowNumber)
+      } else {
+        panel.orderFrontRegardless()
+      }
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0.35
+        panel.animator().alphaValue = 1
+      }
+      panels.append(panel)
+    }
+  }
+
+  private func hide() {
+    let leaving = panels
+    panels = []
+    NSAnimationContext.runAnimationGroup(
+      { context in
+        context.duration = 0.35
+        leaving.forEach { $0.animator().alphaValue = 0 }
+      },
+      completionHandler: {
+        leaving.forEach { $0.orderOut(nil) }
+      })
+  }
 }

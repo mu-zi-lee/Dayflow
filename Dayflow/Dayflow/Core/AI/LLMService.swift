@@ -110,6 +110,13 @@ final class LLMService: LLMServicing {
       ([Observation], ActivityGenerationContext, Int64?) async throws -> (
         cards: [ActivityCardData], log: LLMCall
       )
+    /// Screenshots straight to cards in one call. Only providers that support it set this.
+    var generateTimeline:
+      (
+        ([Screenshot], ActivityGenerationContext, Int64?) async throws -> (
+          cards: [ActivityCardData], observations: [Observation], log: LLMCall
+        )
+      )? = nil
   }
 
   private struct TextProviderActions {
@@ -255,7 +262,8 @@ final class LLMService: LLMServicing {
       return (
         actions: BatchProviderActions(
           transcribeScreenshots: provider.transcribeScreenshots,
-          generateActivityCards: provider.generateActivityCards
+          generateActivityCards: provider.generateActivityCards,
+          generateTimeline: provider.generateTimeline
         ), fallbackState: nil
       )
     case .local:
@@ -279,7 +287,8 @@ final class LLMService: LLMServicing {
       return (
         actions: BatchProviderActions(
           transcribeScreenshots: provider.transcribeScreenshots,
-          generateActivityCards: provider.generateActivityCards
+          generateActivityCards: provider.generateActivityCards,
+          generateTimeline: provider.generateTimeline
         ), fallbackState: nil
       )
     case .claude:
@@ -287,7 +296,8 @@ final class LLMService: LLMServicing {
       return (
         actions: BatchProviderActions(
           transcribeScreenshots: provider.transcribeScreenshots,
-          generateActivityCards: provider.generateActivityCards
+          generateActivityCards: provider.generateActivityCards,
+          generateTimeline: provider.generateTimeline
         ), fallbackState: nil
       )
     }
@@ -438,31 +448,6 @@ final class LLMService: LLMServicing {
     return false
   }
 
-  private func buildFailureToastMessage(
-    operation: LLMProcessingStep?,
-    error: Error,
-    backupConfigured: Bool
-  ) -> String {
-    let rateLimited = isRateLimitError(error)
-
-    if rateLimited && !backupConfigured {
-      return
-        "Dayflow hit a rate limit and no backup provider is configured. Add a backup in Settings > Providers to avoid interruptions."
-    }
-
-    switch operation {
-    case .transcribing:
-      return
-        "Dayflow couldn't transcribe this batch. Check Settings > Providers and configure a backup provider."
-    case .generatingCards:
-      return
-        "Dayflow couldn't generate timeline cards for this batch. Check Settings > Providers and configure a backup provider."
-    case .none:
-      return
-        "Dayflow couldn't finish this batch. Check Settings > Providers and configure a backup provider."
-    }
-  }
-
   private func emitTimelineFailureToast(
     classification: TimelineFailureClassification,
     operation: LLMProcessingStep?,
@@ -474,22 +459,22 @@ final class LLMService: LLMServicing {
     backupConfigured: Bool,
     batchId: Int64?
   ) {
-    let content = classification.toastContent(fallbackProviderLabel: primaryProviderLabel)
-
-    // Non-actionable failures resolve on their own; the only reason to
-    // surface one is to pitch a backup provider, so skip when one exists.
-    if content == nil && backupConfigured { return }
+    // Only interrupt the user for problems they have to fix themselves.
+    // Everything else is retried automatically after the next success.
+    guard let content = classification.toastContent(fallbackProviderLabel: primaryProviderLabel)
+    else { return }
 
     guard shouldEmitTimelineFailureToast(kind: classification.kind) else { return }
 
     let nsError = error as NSError
-    let rateLimited = isRateLimitError(error)
     let payload = TimelineFailureToastPayload(
-      message: content?.body
-        ?? buildFailureToastMessage(
-          operation: operation, error: error, backupConfigured: backupConfigured),
-      title: content?.title,
-      destination: content?.destination ?? .providers,
+      message: content.body,
+      title: content.title,
+      providerName: content.providerName,
+      steps: content.steps,
+      command: content.command,
+      waitingSeconds: failedRecordingSecondsInLastDay(),
+      destination: content.destination,
       failureKind: classification.kind.rawValue,
       operation: operationName(for: operation),
       primaryProvider: primaryProvider,
@@ -497,13 +482,21 @@ final class LLMService: LLMServicing {
       backupProvider: backupProvider,
       backupProviderLabel: backupProviderLabel,
       backupConfigured: backupConfigured,
-      rateLimitDetected: rateLimited,
+      rateLimitDetected: isRateLimitError(error),
       errorDomain: nsError.domain,
       errorCode: nsError.code,
       batchId: batchId
     )
     AnalyticsService.shared.capture("llm_timeline_failure_toast_shown", payload.analyticsProps)
     TimelineFailureToastCenter.post(payload)
+  }
+
+  /// Recorded time from the last 24 hours that failed and is waiting to be retried.
+  private func failedRecordingSecondsInLastDay(now: Date = Date()) -> Int {
+    let cutoff = Int(now.timeIntervalSince1970) - 24 * 60 * 60
+    return StorageManager.shared.allBatches()
+      .filter { $0.status == "failed" && $0.start >= cutoff }
+      .reduce(0) { total, batch in total + max(0, batch.end - batch.start) }
   }
 
   private func shouldEmitTimelineFailureToast(
@@ -778,8 +771,7 @@ final class LLMService: LLMServicing {
           screenshot.kind != .redacted
             || FileManager.default.fileExists(atPath: screenshot.filePath)
         }
-        var observations: [Observation]
-        var transcribeLog: LLMCall
+        var observations: [Observation] = []
 
         guard !screenshots.isEmpty else {
           throw NSError(
@@ -787,145 +779,189 @@ final class LLMService: LLMServicing {
             userInfo: [NSLocalizedDescriptionKey: "No screenshots in batch"])
         }
 
-        lastProcessingStep = .transcribing
-        await MainActor.run {
-          progressHandler?(.transcribing)
-        }
-
-        print("📸 [LLMService] Transcribing \(screenshots.count) screenshots")
-
-        // Transcribe screenshots using provider
-        let transcribeResult = try await executeWithProviderBackup(
-          operation: "transcribe",
-          batchId: batchId,
-          primaryContext: primaryContext,
-          activeContext: activeContext,
-          backupContext: backupContext
-        ) { context in
-          try await context.actions.transcribeScreenshots(screenshots, batchStartDate, batchId)
-        }
-        observations = transcribeResult.value.observations
-        transcribeLog = transcribeResult.value.log
-        activeContext = transcribeResult.activeContext
-        usedProviderBackup = usedProviderBackup || transcribeResult.usedProviderBackup
-        print("📸 [LLMService] Transcribed → \(observations.count) observations")
-
-        StorageManager.shared.saveObservations(batchId: batchId, observations: observations)
-
-        // If no observations, mark batch as complete with no activities
-        guard !observations.isEmpty else {
-          print("⚠️ [LLMService] Transcription returned 0 observations for batch \(batchId)")
-          if let logOutput = transcribeLog.output, !logOutput.isEmpty {
-            print("   ↳ transcribeLog.output: \(logOutput)")
-          }
-          if let logInput = transcribeLog.input, !logInput.isEmpty {
-            print("   ↳ transcribeLog.input: \(logInput)")
-          }
-          AnalyticsService.shared.capture(
-            "transcription_returned_empty",
-            [
-              "batch_id": batchId,
-              "provider": activeContext.id.analyticsName,
-              "provider_id": activeContext.id.rawValue,
-              "provider_label": activeContext.providerLabel,
-              "transcribe_latency_ms": Int((transcribeLog.latency ?? 0) * 1000),
-            ])
-          StorageManager.shared.updateBatch(batchId, status: "analyzed")
-          completion(.success(ProcessedBatchResult(cards: [], cardIds: [])))
-          return
-        }
-
-        // SLIDING WINDOW CARD GENERATION - Replace old card generation with sliding window approach
-
-        // Transcription can run in parallel, but timeline reads, generation, and replacement form
-        // one serialized rewrite and must not overlap another batch's rewrite.
-        await Self.timelineCardGenerationGate.acquire()
-        holdsTimelineCardGenerationGate = true
-
-        // Calculate card-generation lookback window.
+        // Card-generation lookback window.
         let currentTime = Date(timeIntervalSince1970: TimeInterval(batchEndTs))
         let windowStartTime = currentTime.addingTimeInterval(-batchingConfig.cardLookbackDuration)
+        let batchStartTime = batchStartDate
 
-        // Fetch observations from the recent batching window (instead of just current batch).
-        let recentObservations = StorageManager.shared.fetchObservationsByTimeRange(
-          from: windowStartTime,
-          to: currentTime,
-          deviceId: batchDeviceId
-        )
+        func makeGenerationContext(batchObservations: [Observation]) -> ActivityGenerationContext {
+          // Fetch existing timeline cards that overlap with the recent batching window.
+          let existingTimelineCards = StorageManager.shared.fetchTimelineCardsByTimeRange(
+            from: windowStartTime,
+            to: currentTime,
+            deviceId: batchDeviceId
+          )
+          let hasPreviousCardWithinFiveMinutes = StorageManager.shared.hasTimelineCardConnected(
+            toBatchStartingAt: batchStartTime,
+            maxGap: 5 * 60
+          )
 
-        print("[DEBUG] LLMService fetched \(recentObservations.count) observations")
-        for (i, obs) in recentObservations.enumerated() {
-          print("  [\(i)] observation type: \(type(of: obs.observation))")
-          print("       observation: \(obs.observation)")
-        }
+          // Convert TimelineCards to ActivityCardData for context
+          let existingActivityCards = existingTimelineCards.filter { card in
+            card.category != "System"
+          }.map { card in
+            ActivityCardData(
+              startTime: card.startTimestamp,
+              endTime: card.endTimestamp,
+              category: card.category,
+              subcategory: card.subcategory,
+              title: card.title,
+              summary: card.summary,
+              detailedSummary: card.detailedSummary,
+              distractions: card.distractions,
+              appSites: card.appSites
+            )
+          }
 
-        // Fetch existing timeline cards that overlap with the recent batching window.
-        let existingTimelineCards = StorageManager.shared.fetchTimelineCardsByTimeRange(
-          from: windowStartTime,
-          to: currentTime,
-          deviceId: batchDeviceId
-        )
-
-        let batchStartTime = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
-        let hasPreviousCardWithinFiveMinutes = StorageManager.shared.hasTimelineCardConnected(
-          toBatchStartingAt: batchStartTime,
-          maxGap: 5 * 60
-        )
-
-        // Convert TimelineCards to ActivityCardData for context
-        let existingActivityCards = existingTimelineCards.filter { card in
-          card.category != "System"
-        }.map { card in
-          ActivityCardData(
-            startTime: card.startTimestamp,
-            endTime: card.endTimestamp,
-            category: card.category,
-            subcategory: card.subcategory,
-            title: card.title,
-            summary: card.summary,
-            detailedSummary: card.detailedSummary,
-            distractions: card.distractions,
-            appSites: card.appSites
+          return ActivityGenerationContext(
+            batchObservations: batchObservations,
+            existingCards: existingActivityCards,
+            currentTime: currentTime,
+            categories: CategoryStore.descriptorsForLLM(),
+            hasPreviousCardWithinFiveMinutes: hasPreviousCardWithinFiveMinutes
           )
         }
 
-        // Prepare context for activity generation
-        let categories = CategoryStore.descriptorsForLLM()
-        print("[DEBUG] LLMService loaded \(categories.count) categories")
-        for (i, cat) in categories.enumerated() {
-          print("  [\(i)] name type: \(type(of: cat.name)), value: \(cat.name)")
-          print(
-            "       description type: \(type(of: cat.description)), value: \(cat.description ?? "nil")"
+        // One-step generation: the primary provider reads the screenshots and writes the cards
+        // in a single call. If it fails, the batch falls through to transcribe-then-generate
+        // below, which keeps its own backup-provider handling.
+        var oneStepCards: [ActivityCardData]?
+        if !usedProviderBackup, let generateTimeline = activeContext.actions.generateTimeline {
+          lastProcessingStep = .generatingCards
+          await MainActor.run {
+            progressHandler?(.generatingCards)
+          }
+
+          // The call reads and rewrites the recent timeline, so it must not overlap another
+          // batch's rewrite.
+          await Self.timelineCardGenerationGate.acquire()
+          holdsTimelineCardGenerationGate = true
+
+          let oneStepStartedAt = Date()
+          do {
+            let result = try await generateTimeline(
+              screenshots, makeGenerationContext(batchObservations: []), batchId)
+            observations = result.observations
+            StorageManager.shared.saveObservations(batchId: batchId, observations: observations)
+            oneStepCards = result.cards
+            print(
+              "🧩 [LLMService] One-step timeline → \(result.cards.count) cards, "
+                + "\(observations.count) observations")
+          } catch {
+            let nsError = error as NSError
+            // Sign-in and subscription rejections would fail the same way on the two-step
+            // endpoints, so surface them instead of sending a second doomed request.
+            if nsError.domain == "DayflowBackend", [401, 402, 403].contains(nsError.code) {
+              throw error
+            }
+            AnalyticsService.shared.capture(
+              "timeline_one_step_fallback",
+              [
+                "batch_id": batchId,
+                "provider": activeContext.id.analyticsName,
+                "provider_id": activeContext.id.rawValue,
+                "error_domain": nsError.domain,
+                "error_code": nsError.code,
+                "latency_ms": Int(Date().timeIntervalSince(oneStepStartedAt) * 1000),
+              ])
+            print(
+              "⚠️ [LLMService] One-step timeline failed for batch \(batchId), "
+                + "falling back to transcribe + generate: \(nsError.localizedDescription)")
+          }
+        }
+
+        let cards: [ActivityCardData]
+        if let oneStepCards {
+          cards = oneStepCards
+        } else {
+          lastProcessingStep = .transcribing
+          await MainActor.run {
+            progressHandler?(.transcribing)
+          }
+
+          print("📸 [LLMService] Transcribing \(screenshots.count) screenshots")
+
+          // Transcribe screenshots using provider
+          let transcribeResult = try await executeWithProviderBackup(
+            operation: "transcribe",
+            batchId: batchId,
+            primaryContext: primaryContext,
+            activeContext: activeContext,
+            backupContext: backupContext
+          ) { context in
+            try await context.actions.transcribeScreenshots(screenshots, batchStartDate, batchId)
+          }
+          observations = transcribeResult.value.observations
+          let transcribeLog = transcribeResult.value.log
+          activeContext = transcribeResult.activeContext
+          usedProviderBackup = usedProviderBackup || transcribeResult.usedProviderBackup
+          print("📸 [LLMService] Transcribed → \(observations.count) observations")
+
+          StorageManager.shared.saveObservations(batchId: batchId, observations: observations)
+
+          // If no observations, mark batch as complete with no activities
+          guard !observations.isEmpty else {
+            print("⚠️ [LLMService] Transcription returned 0 observations for batch \(batchId)")
+            if let logOutput = transcribeLog.output, !logOutput.isEmpty {
+              print("   ↳ transcribeLog.output: \(logOutput)")
+            }
+            if let logInput = transcribeLog.input, !logInput.isEmpty {
+              print("   ↳ transcribeLog.input: \(logInput)")
+            }
+            AnalyticsService.shared.capture(
+              "transcription_returned_empty",
+              [
+                "batch_id": batchId,
+                "provider": activeContext.id.analyticsName,
+                "provider_id": activeContext.id.rawValue,
+                "provider_label": activeContext.providerLabel,
+                "transcribe_latency_ms": Int((transcribeLog.latency ?? 0) * 1000),
+              ])
+            StorageManager.shared.updateBatch(batchId, status: "analyzed")
+            completion(.success(ProcessedBatchResult(cards: [], cardIds: [])))
+            return
+          }
+
+          // SLIDING WINDOW CARD GENERATION
+
+          // Transcription can run in parallel, but timeline reads, generation, and replacement
+          // form one serialized rewrite and must not overlap another batch's rewrite.
+          if !holdsTimelineCardGenerationGate {
+            await Self.timelineCardGenerationGate.acquire()
+            holdsTimelineCardGenerationGate = true
+          }
+
+          // Fetch observations from the recent batching window (instead of just current batch).
+          let recentObservations = StorageManager.shared.fetchObservationsByTimeRange(
+            from: windowStartTime,
+            to: currentTime,
+            deviceId: batchDeviceId
           )
-        }
+          print("[DEBUG] LLMService fetched \(recentObservations.count) observations")
 
-        let context = ActivityGenerationContext(
-          batchObservations: observations,
-          existingCards: existingActivityCards,
-          currentTime: currentTime,
-          categories: categories,
-          hasPreviousCardWithinFiveMinutes: hasPreviousCardWithinFiveMinutes
-        )
+          let context = makeGenerationContext(batchObservations: observations)
+          print("[DEBUG] LLMService loaded \(context.categories.count) categories")
 
-        lastProcessingStep = .generatingCards
-        await MainActor.run {
-          progressHandler?(.generatingCards)
-        }
+          lastProcessingStep = .generatingCards
+          await MainActor.run {
+            progressHandler?(.generatingCards)
+          }
 
-        // Generate activity cards using sliding window observations
-        let cardsResult = try await executeWithProviderBackup(
-          operation: "generate_cards",
-          batchId: batchId,
-          primaryContext: primaryContext,
-          activeContext: activeContext,
-          backupContext: backupContext
-        ) { providerContext in
-          try await providerContext.actions.generateActivityCards(
-            recentObservations, context, batchId)
+          // Generate activity cards using sliding window observations
+          let cardsResult = try await executeWithProviderBackup(
+            operation: "generate_cards",
+            batchId: batchId,
+            primaryContext: primaryContext,
+            activeContext: activeContext,
+            backupContext: backupContext
+          ) { providerContext in
+            try await providerContext.actions.generateActivityCards(
+              recentObservations, context, batchId)
+          }
+          cards = cardsResult.value.cards
+          activeContext = cardsResult.activeContext
+          usedProviderBackup = usedProviderBackup || cardsResult.usedProviderBackup
         }
-        let cards = cardsResult.value.cards
-        activeContext = cardsResult.activeContext
-        usedProviderBackup = usedProviderBackup || cardsResult.usedProviderBackup
         let usedGemmaForCardGeneration =
           activeContext.fallbackState?.usedGemmaForCardGeneration == true
         let isBackupGenerated = usedProviderBackup || usedGemmaForCardGeneration
@@ -994,7 +1030,16 @@ final class LLMService: LLMServicing {
             "effective_llm_provider": activeContext.id.analyticsName,
             "effective_provider_id": activeContext.id.rawValue,
             "used_provider_backup": usedProviderBackup,
+            "one_step": oneStepCards != nil,
           ])
+
+        // Whatever the failure card asked the user to fix is working again.
+        TimelineFailureToastCenter.hide()
+
+        let analyzedCardCount = cards.count
+        Task { @MainActor in
+          GettingStarted.handleBatchAnalyzed(cardCount: analyzedCardCount)
+        }
 
         completion(.success(ProcessedBatchResult(cards: cards, cardIds: insertedCardIds)))
 
@@ -1027,6 +1072,11 @@ final class LLMService: LLMServicing {
             "backup_configured": backupConfigured,
           ])
 
+        // Mark batch as failed. The raw error stays in the batch row for debugging;
+        // the user only ever sees the classifier's plain-language copy.
+        StorageManager.shared.updateBatch(
+          batchId, status: "failed", reason: error.localizedDescription)
+
         emitTimelineFailureToast(
           classification: failureClassification,
           operation: lastProcessingStep,
@@ -1039,19 +1089,14 @@ final class LLMService: LLMServicing {
           batchId: batchId
         )
 
-        // Mark batch as failed
-        StorageManager.shared.updateBatch(
-          batchId, status: "failed", reason: error.localizedDescription)
-
         // Create an error card for the failed time period
         let batchStartDate = Date(timeIntervalSince1970: TimeInterval(batchStartTs))
         let batchEndDate = Date(timeIntervalSince1970: TimeInterval(batchEndTs))
 
         let errorCard = createErrorCard(
-          batchId: batchId,
           batchStartTime: batchStartDate,
           batchEndTime: batchEndDate,
-          error: error
+          message: failureClassification.cardMessage(fallbackProviderLabel: primaryProviderLabel)
         )
 
         // Replace any existing cards in this time range with the error card
@@ -1088,7 +1133,7 @@ final class LLMService: LLMServicing {
   }
 
   private func createErrorCard(
-    batchId: Int64, batchStartTime: Date, batchEndTime: Date, error: Error
+    batchStartTime: Date, batchEndTime: Date, message: String
   ) -> TimelineCardShell {
     let formatter = DateFormatter()
     formatter.dateFormat = "h:mm a"
@@ -1098,23 +1143,16 @@ final class LLMService: LLMServicing {
     let startTimeStr = formatter.string(from: batchStartTime)
     let endTimeStr = formatter.string(from: batchEndTime)
 
-    // Calculate duration in minutes
-    let duration = Int(batchEndTime.timeIntervalSince(batchStartTime) / 60)
-
-    // Get human-readable error message
-    let humanError = getHumanReadableError(error)
-
-    // Create the error card
+    // The title stays the English sentinel the timeline uses to spot failed cards.
+    // No detailed summary: raw error text never reaches the card.
     return TimelineCardShell(
       startTimestamp: startTimeStr,
       endTimestamp: endTimeStr,
       category: "System",
       subcategory: "Error",
       title: "Processing failed",
-      summary:
-        "Failed to process \(duration) minutes of recording from \(startTimeStr) to \(endTimeStr). \(humanError) Your recording is safe and can be reprocessed.",
-      detailedSummary:
-        "Error details: \(error.localizedDescription)\n\nThis recording batch (ID: \(batchId)) failed during AI processing. The original video files are preserved and can be reprocessed by retrying from Settings. Common causes include network issues, API rate limits, or temporary service outages.",
+      summary: "\(message) Your recording is saved.",
+      detailedSummary: "",
       distractions: nil,
       appSites: nil
     )

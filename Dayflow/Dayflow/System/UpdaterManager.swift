@@ -150,7 +150,7 @@ extension UpdaterManager: SPUUpdaterDelegate {
   nonisolated func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
     Task { @MainActor in
       print("[Sparkle] Will install update: \(item.versionString)")
-      AppDelegate.allowTermination = true
+      AppDelegate.permitTermination(reason: "update_install")
       self.track("sparkle_install_will_start", self.props(for: item))
     }
   }
@@ -163,7 +163,7 @@ extension UpdaterManager: SPUUpdaterDelegate {
     // Convert Sparkle's deferred "install on quit" into an immediate install
     Task { @MainActor in
       print("[Sparkle] Immediate install requested for update: \(item.versionString)")
-      AppDelegate.allowTermination = true
+      AppDelegate.permitTermination(reason: "update_install")
       immediateInstallHandler()
       self.track("sparkle_install_immediate", self.props(for: item))
     }
@@ -173,7 +173,7 @@ extension UpdaterManager: SPUUpdaterDelegate {
   nonisolated func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
     Task { @MainActor in
       print("[Sparkle] Updater will relaunch application")
-      AppDelegate.allowTermination = true
+      AppDelegate.permitTermination(reason: "update_install")
       self.track("sparkle_app_relaunching")
     }
   }
@@ -275,7 +275,11 @@ extension UpdaterManager: SPUUpdaterDelegate {
       }
 
       self.statusText = needsInteraction ? "Update needs authorization" : "Update check failed"
-      AppDelegate.allowTermination = needsInteraction
+      if needsInteraction {
+        AppDelegate.permitTermination(reason: "update_install")
+      } else {
+        AppDelegate.allowTermination = false
+      }
       self.track(
         "sparkle_update_error",
         [
