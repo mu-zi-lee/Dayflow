@@ -15,7 +15,8 @@
 //
 //  Commands: ready, getToken, state, simulateDistraction, getTimeline,
 //            getWeeklyFocus, getPlan, startCheckout, startTrial,
-//            openExternal, openSupport.
+//            setEarlyBirdAlerts, openExternal, openSupport, microphoneAccess,
+//            openMicrophoneSettings.
 //  Events:   nativeState, overlayAction, supportUnread.
 //
 //  The bridge hands out the session token and numbers derived from the
@@ -24,6 +25,7 @@
 //  web view is never allowed to navigate anywhere else.
 //
 
+import AVFoundation
 import SwiftUI
 import WebKit
 
@@ -303,6 +305,15 @@ struct FlowWebView: NSViewRepresentable {
         }
         reply(id: id, payload: ["shown": FlowSessionMirror.shared.overlay.isDemo])
 
+      case "setEarlyBirdAlerts":
+        // The "Schedule alerts" switch in Flow's settings.
+        if let on = payload["on"] as? Bool {
+          FlowEarlyBirdController.shared.isEnabled = on
+          reply(id: id, payload: [:])
+        } else {
+          reply(id: id, error: "invalid payload")
+        }
+
       case "openExternal":
         if let urlString = payload["url"] as? String, let url = URL(string: urlString),
           url.scheme == "https" || url.scheme == "http"
@@ -317,6 +328,33 @@ struct FlowWebView: NSViewRepresentable {
         onEvent(.supportRequested)
         reply(id: id, payload: [:])
 
+      case "microphoneAccess":
+        // Voice planning asks before it opens the microphone. Asking here,
+        // not through the web view, puts up the system prompt for Dayflow
+        // itself and tells the page when the user has already said no, which
+        // getUserMedia only reports as a bare NotAllowedError.
+        let respond = { [weak self] (status: String) in
+          self?.reply(id: id, payload: ["status": status])
+        }
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized: respond("granted")
+        case .denied: respond("denied")
+        case .restricted: respond("restricted")
+        case .notDetermined:
+          AVCaptureDevice.requestAccess(for: .audio) { granted in
+            Task { @MainActor in respond(granted ? "granted" : "denied") }
+          }
+        @unknown default: respond("granted")
+        }
+
+      case "openMicrophoneSettings":
+        if let url = URL(
+          string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+        {
+          NSWorkspace.shared.open(url)
+        }
+        reply(id: id, payload: [:])
+
       default:
         reply(id: id, error: "unknown command: \(command)")
       }
@@ -329,7 +367,8 @@ struct FlowWebView: NSViewRepresentable {
         "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
       ]
       // Commands newer than the first bridge, so the page knows what it can ask for.
-      payload["capabilities"] = ["dayTimeline", "supportChat"]
+      payload["capabilities"] = ["dayTimeline", "supportChat", "microphone", "earlyBirdAlerts"]
+      payload["earlyBirdAlerts"] = FlowEarlyBirdController.shared.isEnabled
       payload["supportUnread"] = SupportChatSession.flowSupportUnreadCount
       payload["token"] = DayflowAuthManager.storedSessionToken()
       payload["backendURL"] = DayflowBackendConfiguration.endpoint()

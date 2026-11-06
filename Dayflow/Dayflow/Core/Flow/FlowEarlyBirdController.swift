@@ -4,7 +4,8 @@
 //
 //  Shows the early-bird card for the first hour Dayflow is on each day. A day
 //  runs 4am to 4am, the same as the timeline. The hour starts the first time
-//  recording is seen on that day and is remembered across relaunches.
+//  recording is seen on that day and is remembered across relaunches. The
+//  "Schedule alerts" switch in Flow's settings turns it off.
 //
 
 import AppKit
@@ -19,6 +20,7 @@ final class FlowEarlyBirdController {
   private static let dayKey = "flowEarlyBirdDay"
   private static let startKey = "flowEarlyBirdStartedAt"
   private static let dismissedKey = "flowEarlyBirdDismissedDay"
+  private static let enabledKey = "flowEarlyBirdAlerts"
   /// Room around the card for its shadow.
   private static let margin: CGFloat = 16
 
@@ -29,6 +31,15 @@ final class FlowEarlyBirdController {
   private let defaults = UserDefaults.standard
 
   private init() {}
+
+  /// Set from Flow's settings over the bridge; on until the user turns it off.
+  var isEnabled: Bool {
+    get { defaults.object(forKey: Self.enabledKey) as? Bool ?? true }
+    set {
+      defaults.set(newValue, forKey: Self.enabledKey)
+      evaluate()
+    }
+  }
 
   /// Call once at app launch.
   func start() {
@@ -50,7 +61,7 @@ final class FlowEarlyBirdController {
   }
 
   private func evaluate() {
-    guard DayflowAuthManager.shared.flowEnabled, AppState.shared.isRecording else {
+    guard isEnabled, DayflowAuthManager.shared.flowEnabled, AppState.shared.isRecording else {
       hide()
       return
     }

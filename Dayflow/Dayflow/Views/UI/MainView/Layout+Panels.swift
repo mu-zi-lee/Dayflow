@@ -70,7 +70,7 @@ extension MainView {
       case .chat:
         ChatPanelView()
       case .flow:
-        FlowView()
+        Color.clear
       case .agents:
         AgentPlaybackView()
       case .daily:
@@ -84,6 +84,14 @@ extension MainView {
         GeometryReader { geo in
           timelinePanel(geo: geo)
         }
+      }
+
+      // Outside the switch so it keeps its web view while another tab shows.
+      if flowAlive || selectedIcon == .flow {
+        FlowView()
+          .opacity(selectedIcon == .flow ? 1 : 0)
+          .allowsHitTesting(selectedIcon == .flow)
+          .accessibilityHidden(selectedIcon != .flow)
       }
     }
     .padding(0)
@@ -148,12 +156,9 @@ extension MainView {
       timelineFooter
     }
     .coordinateSpace(name: "TimelinePane")
-    .onPreferenceChange(TimelineTimeLabelFramesPreferenceKey.self) { frames in
-      timelineTimeLabelFrames = frames
-    }
     .onPreferenceChange(WeeklyHoursFramePreferenceKey.self) { frame in
-      // Deferred for the same reason as the cards-layer frame in
-      // CanvasTimelineDataView: avoid state writes during the layout pass.
+      // Deferred to avoid state writes during the layout pass. The footer sits
+      // outside the scroll view, so this only fires on resize.
       DispatchQueue.main.async {
         weeklyHoursFrame = frame
       }
@@ -184,7 +189,7 @@ extension MainView {
             hasAnyActivities: $hasAnyActivities,
             refreshTrigger: $refreshActivitiesTrigger,
             weeklyHoursFrame: weeklyHoursFrame,
-            weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
+            footerState: timelineFooterState,
             contentLeadingInset: 0,
             hourHeight: TimelineScale.hourHeight,
             cardTextFontSize: TimelineTypography.cardTextFontSize,
@@ -218,7 +223,7 @@ extension MainView {
             onSelectActivity: selectTimelineActivity,
             onClearSelection: { clearTimelineSelection() },
             weeklyHoursFrame: weeklyHoursFrame,
-            weeklyHoursIntersectsCard: $weeklyHoursIntersectsCard,
+            footerState: timelineFooterState,
             hideCardsForModeSwitch: hideWeekCardsDuringModeSwitch,
             mutedCategoryKeys: mutedCategoryKeys
           )
@@ -247,14 +252,14 @@ extension MainView {
   }
 
   private var timelineFooter: some View {
-    let weeklyHoursOpacity =
-      weeklyHoursFadeOpacity * (weeklyHoursIntersectsCard ? 0 : 1)
     let reviewPromptCount = cardsToReviewPromptCount
 
     return ZStack(alignment: .bottom) {
       HStack(alignment: .bottom) {
-        weeklyHoursText
-          .opacity(contentOpacity * weeklyHoursOpacity)
+        TimelineFooterFade(state: timelineFooterState) {
+          weeklyHoursText
+        }
+        .opacity(contentOpacity)
 
         Spacer()
 
@@ -429,20 +434,6 @@ extension MainView {
     }
   }
 
-  private var weeklyHoursFadeOpacity: Double {
-    guard weeklyHoursFrame != .zero, !timelineTimeLabelFrames.isEmpty else { return 1 }
-    var maxOverlap: CGFloat = 0
-    for frame in timelineTimeLabelFrames {
-      let intersection = weeklyHoursFrame.intersection(frame)
-      if !intersection.isNull {
-        maxOverlap = max(maxOverlap, intersection.height)
-      }
-    }
-    guard maxOverlap > 0 else { return 1 }
-    let clamped = min(maxOverlap, weeklyHoursFadeDistance)
-    return Double(1 - (clamped / weeklyHoursFadeDistance))
-  }
-
   private var weeklyHoursText: some View {
     let textColor = theme.textTertiary
     let parts = timelineTrackedMinutesParts
@@ -534,6 +525,17 @@ extension MainView {
       reassertOnPressEnd: true
     )
     .accessibilityLabel(Text("Copy timeline to clipboard"))
+  }
+}
+
+/// Applies the footer's scroll-driven fade. Reading `state` here, in its own
+/// small view, means only this view re-renders when the fade changes.
+private struct TimelineFooterFade<Content: View>: View {
+  @ObservedObject var state: TimelineFooterState
+  @ViewBuilder let content: Content
+
+  var body: some View {
+    content.opacity(state.opacity)
   }
 }
 

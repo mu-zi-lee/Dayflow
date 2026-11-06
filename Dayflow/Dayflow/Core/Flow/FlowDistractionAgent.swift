@@ -134,8 +134,9 @@ final class FlowDistractionAgent: ObservableObject {
   /// in-flight process are ignored when they land.
   private var generation = 0
   private var consecutiveFailures = 0
-  /// The display from the last good screenshot, reused so each tick costs one
-  /// ScreenCaptureKit request instead of two. Dropped when a capture fails.
+  /// The display from the last good screenshot, reused while the mouse stays
+  /// on it so each tick costs one ScreenCaptureKit request instead of two.
+  /// Dropped when a capture fails.
   private var cachedCaptureDisplay: SCDisplay?
   /// Screenshot failures back off instead of counting toward `maxFailures`:
   /// retrying ScreenCaptureKit right away is what makes macOS show a spurious
@@ -147,6 +148,37 @@ final class FlowDistractionAgent: ObservableObject {
   /// next tick's message.
   private var pendingNotes: [String] = []
   private var lastReportedOffTask = false
+
+  /// What happened to every check this session, sent as one
+  /// `flow_agent_session_summary` event when the agent stops, so a session
+  /// with no nudges can be told apart from one whose checks never ran.
+  private struct SessionStats {
+    var checks = 0
+    var checkSeconds = 0.0
+    var skippedInFlight = 0
+    var skippedCaptureBlocked = 0
+    var skippedCaptureBackoff = 0
+    var skippedNoPermission = 0
+    var captureFailures = 0
+    var turnFailures = 0
+    var unparseableReplies = 0
+    var unparseableSample: String?
+    var onTask = 0
+    var offTask = 0
+    var nudgesRequested = 0
+    var nudgesHeldScreenShare = 0
+    var nudgesHeldNotDue = 0
+    var nudgesSent = 0
+    /// Off-task checks where a nudge was due but the model answered "none".
+    var nudgesDueNotWritten = 0
+    var rebriefs = 0
+
+    var isEmpty: Bool {
+      checks == 0 && skippedInFlight == 0 && skippedCaptureBlocked == 0
+        && skippedCaptureBackoff == 0 && skippedNoPermission == 0
+    }
+  }
+  private var stats = SessionStats()
 
   private var goals: [String] = []
   /// Open tasks with ids; the briefing labels them g1, g2… and the model
@@ -163,6 +195,15 @@ final class FlowDistractionAgent: ObservableObject {
   /// Number of re-briefs this session, so a broken Codex install can't loop.
   private var rebriefs = 0
   private var timeline: FlowSessionTimeline { FlowSessionTimeline.shared }
+
+  /// Whether the primary provider can run the agent. Flow is closed to
+  /// everyone else for now, since nothing would watch their sessions.
+  static var providerCanWatch: Bool {
+    #if DEBUG
+      if UserDefaults.standard.bool(forKey: "flowForceProviderGate") { return false }
+    #endif
+    return Engine.current() != nil
+  }
   /// Debug panel: make the next tick ask for a timeline update.
   private var forceTimelineUpdate = false
 
@@ -210,7 +251,9 @@ final class FlowDistractionAgent: ObservableObject {
   /// when the Codex thread is lost mid-session or the debug panel restarts
   /// the agent with new settings.
   private func start(with snapshot: FlowNativeSnapshot, rebrief: Bool) {
-    stop()
+    // A re-brief is the same session: its checks keep counting.
+    stop(sendSummary: !rebrief)
+    if rebrief { stats.rebriefs += 1 }
     lastSnapshot = snapshot
     sessionStartedAt =
       snapshot.sessionStartedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) } ?? Date()
@@ -391,6 +434,11 @@ final class FlowDistractionAgent: ObservableObject {
   }
 
   func stop() {
+    stop(sendSummary: true)
+  }
+
+  private func stop(sendSummary: Bool) {
+    if sendSummary { sendSessionSummary() }
     generation += 1
     tickTimer?.invalidate()
     tickTimer = nil
@@ -411,6 +459,39 @@ final class FlowDistractionAgent: ObservableObject {
     captureBackoffUntil = nil
     cleanupWorkDirectory()
     statusLine = "Not running"
+  }
+
+  private func sendSessionSummary() {
+    defer { stats = SessionStats() }
+    guard !stats.isEmpty else { return }
+    var props: [String: Any] = [
+      "engine": engineKey,
+      "alert_style": alertStyle.rawValue,
+      "session_minutes": max(0, Int(Date().timeIntervalSince(sessionStartedAt) / 60)),
+      "tick_seconds": Int(settings.tickSeconds),
+      "checks": stats.checks,
+      "skipped_in_flight": stats.skippedInFlight,
+      "skipped_capture_blocked": stats.skippedCaptureBlocked,
+      "skipped_capture_backoff": stats.skippedCaptureBackoff,
+      "skipped_no_permission": stats.skippedNoPermission,
+      "capture_failures": stats.captureFailures,
+      "turn_failures": stats.turnFailures,
+      "unparseable_replies": stats.unparseableReplies,
+      "on_task": stats.onTask,
+      "off_task": stats.offTask,
+      "nudges_requested": stats.nudgesRequested,
+      "nudges_held_screen_share": stats.nudgesHeldScreenShare,
+      "nudges_held_not_due": stats.nudgesHeldNotDue,
+      "nudges_sent": stats.nudgesSent,
+      "nudges_due_not_written": stats.nudgesDueNotWritten,
+      "rebriefs": stats.rebriefs,
+    ]
+    let answered = stats.onTask + stats.offTask + stats.unparseableReplies
+    if answered > 0 {
+      props["avg_check_seconds"] = (stats.checkSeconds / Double(answered) * 10).rounded() / 10
+    }
+    if let sample = stats.unparseableSample { props["unparseable_sample"] = sample }
+    AnalyticsService.shared.capture("flow_agent_session_summary", props)
   }
 
   // MARK: - Debug panel controls
@@ -504,18 +585,30 @@ final class FlowDistractionAgent: ObservableObject {
 
   private func tick() {
     guard let sessionId = conversationId, let directory = workDirectory else { return }
-    guard !paused, !tickInFlight else { return }
+    guard !paused else { return }
+    guard !tickInFlight else {
+      stats.skippedInFlight += 1
+      return
+    }
     // Nothing to see on a locked or sleeping screen, and ScreenCaptureKit
     // requests right then are the ones that trigger the spurious prompt.
-    guard !ScreenCaptureMonitor.shared.isCaptureBlocked else { return }
-    if let until = captureBackoffUntil, Date() < until { return }
+    guard !ScreenCaptureMonitor.shared.isCaptureBlocked else {
+      stats.skippedCaptureBlocked += 1
+      return
+    }
+    if let until = captureBackoffUntil, Date() < until {
+      stats.skippedCaptureBackoff += 1
+      return
+    }
     // Without the grant every capture attempt would show the real system prompt.
     guard CGPreflightScreenCaptureAccess() else {
+      stats.skippedNoPermission += 1
       statusLine = "No Screen Recording permission"
       return
     }
 
     tickInFlight = true
+    stats.checks += 1
     let gen = generation
     let askTimeline =
       forceTimelineUpdate || timeline.wantsUpdate(every: settings.timelineEverySeconds)
@@ -635,6 +728,7 @@ final class FlowDistractionAgent: ObservableObject {
     // The screenshot itself failed: back off rather than spending the
     // failure budget, and fetch the display list again next time.
     guard let captureDisplay else {
+      stats.captureFailures += 1
       cachedCaptureDisplay = nil
       captureFailureCount += 1
       let delays = Self.captureBackoffDelays
@@ -649,6 +743,7 @@ final class FlowDistractionAgent: ObservableObject {
     captureBackoffUntil = nil
 
     guard let reply else {
+      stats.turnFailures += 1
       consecutiveFailures += 1
       print("[FlowAgent] Tick failed (\(consecutiveFailures)): \(error ?? "unknown")")
       appendTranscript("Turn failed: \(error ?? "unknown")")
@@ -673,6 +768,7 @@ final class FlowDistractionAgent: ObservableObject {
       return
     }
     consecutiveFailures = 0
+    stats.checkSeconds += seconds
     appendTranscript(reply)
     if engine == .dayflow {
       backendHistory.append(BackendTurn(role: "user", content: prompt))
@@ -686,8 +782,11 @@ final class FlowDistractionAgent: ObservableObject {
       let verdict = try? JSONDecoder().decode(Verdict.self, from: Data(first.utf8))
     else {
       print("[FlowAgent] Unparseable reply, treating as on-task: \(reply.prefix(200))")
+      stats.unparseableReplies += 1
+      if stats.unparseableSample == nil { stats.unparseableSample = String(reply.prefix(200)) }
       return
     }
+    if verdict.isOffTask { stats.offTask += 1 } else { stats.onTask += 1 }
     // The verdict comes first and is acted on first; the timeline (when the
     // tick asked for one) rides behind it in a second object.
     handle(verdict: verdict)
@@ -788,16 +887,20 @@ final class FlowDistractionAgent: ObservableObject {
 
     switch verdict.action {
     case "nudge":
+      stats.nudgesRequested += 1
       // Someone else can see this screen right now, most likely in a meeting.
       guard !FlowScreenShareDetector.isSharing() else {
+        stats.nudgesHeldScreenShare += 1
         print("[FlowAgent] Nudge held back: the screen is being shared")
         break
       }
       // Dayflow times the nudges; the model only writes them.
       guard offTask, nudgeDue(at: now) else {
+        stats.nudgesHeldNotDue += 1
         print("[FlowAgent] Nudge held back: none is due")
         break
       }
+      stats.nudgesSent += 1
       unansweredNudges += 1
       focusedSince = nil
       lastNudgeAt = now
@@ -805,7 +908,7 @@ final class FlowDistractionAgent: ObservableObject {
         verdict.message ?? String(localized: "Psst... I think you're getting distracted!")
       FlowSessionMirror.shared.agentNudge(message: message)
     default:
-      break
+      if offTask, alertStyle != .quiet, nudgeDue(at: now) { stats.nudgesDueNotWritten += 1 }
     }
   }
 
@@ -1231,19 +1334,29 @@ final class FlowDistractionAgent: ObservableObject {
   private nonisolated static func captureScreenshotJPEG(
     to url: URL, height: Int, quality: Double, display cachedDisplay: SCDisplay?
   ) async throws -> SCDisplay {
+    // Watch the screen the user is on, the way the recorder picks its display:
+    // the one under the mouse. The cached display is reused until the mouse
+    // moves to another screen, so a single-display Mac still costs one
+    // ScreenCaptureKit request per check.
+    let wantedID = ActiveDisplayTracker.displayIDUnderMouse()
     let display: SCDisplay
-    if let cachedDisplay {
+    if let cachedDisplay, wantedID == nil || cachedDisplay.displayID == wantedID {
       display = cachedDisplay
     } else {
       ScreenCaptureMonitor.shared.recordRequest(.shareableContent, source: .flow)
       let content = try await SCShareableContent.excludingDesktopWindows(
         false, onScreenWindowsOnly: true)
-      guard let first = content.displays.first else {
+      let mainID = CGMainDisplayID()
+      guard
+        let picked = content.displays.first(where: { $0.displayID == wantedID })
+          ?? content.displays.first(where: { $0.displayID == mainID })
+          ?? content.displays.first
+      else {
         throw NSError(
           domain: "FlowAgent", code: -1,
           userInfo: [NSLocalizedDescriptionKey: "No display available for capture"])
       }
-      display = first
+      display = picked
     }
 
     let configuration = SCStreamConfiguration()

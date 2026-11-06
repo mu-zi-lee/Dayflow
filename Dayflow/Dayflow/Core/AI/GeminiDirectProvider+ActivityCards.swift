@@ -257,14 +257,12 @@ extension GeminiDirectProvider {
         lastError = error
         print("❌ Attempt \(attempt + 1) failed: \(error.localizedDescription)")
 
-        var appliedFallback = false
         if let nsError = error as NSError?,
           nsError.domain == "GeminiError",
           Self.capacityErrorCodes.contains(nsError.code),
           let transition = modelState.advance()
         {
 
-          appliedFallback = true
           let reason = fallbackReason(for: nsError.code)
           print("↔️ Switching to \(transition.to.rawValue) after \(nsError.code)")
 
@@ -280,30 +278,31 @@ extension GeminiDirectProvider {
                 "batch_id": batchId as Any,
               ])
           }
+
+          // Moving to the next model doesn't use up a retry, so every model in the chain gets tried.
+          continue
         }
 
-        if !appliedFallback {
-          // Normal error handling with backoff
-          let strategy = classifyError(error)
+        // Normal error handling with backoff
+        let strategy = classifyError(error)
 
-          // Check if we should retry
-          if strategy == .noRetry || attempt >= maxRetries - 1 {
-            print("🚫 Not retrying: strategy=\(strategy), attempt=\(attempt + 1)/\(maxRetries)")
-            throw error
-          }
+        // Check if we should retry
+        if strategy == .noRetry || attempt >= maxRetries - 1 {
+          print("🚫 Not retrying: strategy=\(strategy), attempt=\(attempt + 1)/\(maxRetries)")
+          throw error
+        }
 
-          // Apply appropriate delay based on error type
-          let delay = delayForStrategy(strategy, attempt: attempt)
-          if delay > 0 {
-            print(
-              "⏳ Waiting \(String(format: "%.1f", delay))s before retry (strategy: \(strategy))")
-            try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-          }
+        // Apply appropriate delay based on error type
+        let delay = delayForStrategy(strategy, attempt: attempt)
+        if delay > 0 {
+          print(
+            "⏳ Waiting \(String(format: "%.1f", delay))s before retry (strategy: \(strategy))")
+          try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        }
 
-          // For non-validation errors, reset to base prompt
-          if strategy != .enhancedPrompt {
-            actualPromptUsed = basePrompt
-          }
+        // For non-validation errors, reset to base prompt
+        if strategy != .enhancedPrompt {
+          actualPromptUsed = basePrompt
         }
       }
 

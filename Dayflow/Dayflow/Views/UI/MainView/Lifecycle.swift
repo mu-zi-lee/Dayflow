@@ -40,6 +40,11 @@ extension MainView {
   }
 
   func requestDailyGoalPromptIfNeeded() {
+    // People who get the Daily brief see it instead of the goal pop-up.
+    guard !DailyBriefStore.shared.suppressesDailyGoalPrompt else {
+      pendingGoalPromptDay = nil
+      return
+    }
     guard DayGoalPreferences.showDailyGoalPopups else {
       pendingGoalPromptDay = nil
       return

@@ -58,6 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
   override init() {
     UserDefaultsMigrator.migrateIfNeeded()
+    // Before any window exists, so no SwiftUI text layer predates it.
+    FlippedTextLayerWorkaround.install()
     DayflowBackupManager.applyPendingRestoreIfNeeded()
     super.init()
   }
@@ -81,6 +83,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       AnalyticsService.shared.start(apiKey: POSTHOG_API_KEY, host: POSTHOG_HOST)
       analyticsConfigured = true
       AgentUsageTelemetryQueue.drain()
+    }
+
+    // Read the user's shell environment in the background now, so the first Claude or Codex
+    // run doesn't wait on a slow shell. Runs after analytics start so a failure gets reported.
+    Task.detached(priority: .utility) {
+      _ = ShellEnvironment.shared.current(trigger: "launch")
     }
 
     // App opened (cold start)
@@ -192,6 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Flow desktop overlay (creature toasts/nudges) tracks the session mirror
     FlowOverlayController.shared.start()
     FlowEarlyBirdController.shared.start()
+    DailyBriefMenuBarNotice.shared.start()
 
     // Observe recording state
     analyticsSub = AppState.shared.$isRecording

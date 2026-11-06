@@ -167,7 +167,8 @@ OWNER_REPO=$(git -C "$REPO_ROOT" remote get-url origin | sed -E 's#.*github.com[
 
 TITLE="$APP_NAME $NEW_SHORT"
 REL_ARGS=("$TAG" "$REPO_ROOT/$DMG_NAME" --title "$TITLE" --draft)
-if [[ -n "$NOTES_FILE" ]]; then REL_ARGS+=(--notes-file "$NOTES_FILE"); fi
+# Blank notes when no file is given, so gh doesn't stop to ask for them.
+if [[ -n "$NOTES_FILE" ]]; then REL_ARGS+=(--notes-file "$NOTES_FILE"); else REL_ARGS+=(--notes ""); fi
 
 if gh release view "$TAG" >/dev/null 2>&1; then
   echo "[4/8] Release $TAG already exists; uploading asset (clobber)…"

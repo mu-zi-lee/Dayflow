@@ -15,8 +15,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
   /// The same countdown, for the hero at the top of the open menu.
   private let flowClock = FlowMenuClock()
 
+  /// The live controller, so floating cards (like the Daily brief notice) can
+  /// sit under the menu bar icon.
+  private(set) static weak var current: StatusBarController?
+
   override init() {
     super.init()
+    Self.current = self
     menu.delegate = self
     statusItem.menu = menu
 
@@ -42,6 +47,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
       .sink { [weak self] _ in
         self?.flowSessionChanged()
       }
+  }
+
+  /// Where the menu bar icon is on screen, or nil when macOS is hiding it.
+  func iconFrameOnScreen() -> NSRect? {
+    guard let button = statusItem.button, let window = button.window, window.isVisible else {
+      return nil
+    }
+    return window.convertToScreen(button.convert(button.bounds, to: nil))
   }
 
   private func updateIcon(isRecording: Bool) {

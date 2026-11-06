@@ -85,24 +85,28 @@ final class ActiveDisplayTracker: ObservableObject {
     timerSource = nil
   }
 
-  /// Called on stateQueue (background) - does the heavy lifting off the main thread
-  nonisolated private func pollDisplayOnBackground() {
-    // Get mouse location - this can occasionally block, so we do it off main
+  /// The display under the mouse right now, preferring a screen whose frame
+  /// (inset by `hysteresisInset`) contains the cursor so a cursor resting on a
+  /// border doesn't flap between two screens. Also used by Flow's agent, which
+  /// asks once per check and needs no debounce.
+  nonisolated static func displayIDUnderMouse(hysteresisInset inset: CGFloat = 10)
+    -> CGDirectDisplayID?
+  {
+    // Get mouse location - this can occasionally block, so callers stay off main when they can
     let loc = NSEvent.mouseLocation
-    let inset = hysteresisInset
-
-    // Get screens snapshot
     let screens = NSScreen.screens
-
-    // Find screen under cursor with hysteresis
     guard
       let screen = screens.first(where: { $0.frame.insetBy(dx: inset, dy: inset).contains(loc) })
         ?? screens.first(where: { $0.frame.contains(loc) })
-    else { return }
-
-    let newID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?
+    else { return nil }
+    return (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?
       .uint32Value
-    guard let id = newID else { return }
+  }
+
+  /// Called on stateQueue (background) - does the heavy lifting off the main thread
+  nonisolated private func pollDisplayOnBackground() {
+    // Get mouse location - this can occasionally block, so we do it off main
+    guard let id = Self.displayIDUnderMouse(hysteresisInset: hysteresisInset) else { return }
 
     let now = Date()
 

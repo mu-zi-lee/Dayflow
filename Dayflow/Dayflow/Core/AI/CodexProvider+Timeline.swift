@@ -16,7 +16,9 @@ extension CodexProvider {
   /// lines so recaps and chat keep their per-batch record.
   func generateTimeline(
     screenshots: [Screenshot], context: ActivityGenerationContext, batchId: Int64?
-  ) async throws -> (cards: [ActivityCardData], observations: [Observation], log: LLMCall) {
+  ) async throws -> (
+    cards: [ActivityCardData], observations: [Observation], rewriteSpan: Range<Int>?, log: LLMCall
+  ) {
     guard !screenshots.isEmpty else {
       throw NSError(
         domain: "ChatCLI", code: -96,
@@ -59,8 +61,11 @@ extension CodexProvider {
         )
       )
       let previousCards = plan.context.existingCards
+      let accessibilityLog = await OneStepTimelineAccessibilityLog.load(
+        windowStart: frames.windowStart, windowEnd: frames.windowEnd, batchId: batchId)
       let basePrompt = buildTimelinePrompt(
-        frames: frames, previousCards: previousCards, categories: context.categories)
+        frames: frames, previousCards: previousCards, categories: context.categories,
+        accessibilityLog: accessibilityLog)
       let imagePaths = frames.frames.map(\.url.path)
       var currentPrompt = basePrompt
       var lastError: Error?
@@ -127,7 +132,7 @@ extension CodexProvider {
             responseHeaders: tokenHeaders(from: run.usage))
           let llmCall = makeLLMCall(
             start: callStart, end: run.finishedAt, input: currentPrompt, output: run.stdout)
-          return (cards, observations, llmCall)
+          return (cards, observations, plan.rewriteSpan, llmCall)
         } catch {
           if error is CancellationError { throw error }
           if currentAttempt < Self.timelineMaxAttempts,
@@ -185,7 +190,8 @@ extension CodexProvider {
   private func buildTimelinePrompt(
     frames: OneStepTimelineFrames,
     previousCards: [ActivityCardData],
-    categories: [LLMCategoryDescriptor]
+    categories: [LLMCategoryDescriptor],
+    accessibilityLog: String?
   ) -> String {
     let userName = NSFullUserName()
       .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
@@ -239,6 +245,9 @@ extension CodexProvider {
     text += frameLines + "\n\n"
     text += "Do not run commands or use tools; everything you need is in this message.\n\n"
     text += CodexTimelinePrompt.outputBlock
+    if let accessibilityLog {
+      text += ClaudeTimelinePrompt.accessibilityLogSection(accessibilityLog)
+    }
     return text
   }
 }

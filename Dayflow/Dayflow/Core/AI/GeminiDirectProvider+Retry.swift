@@ -6,7 +6,7 @@ extension GeminiDirectProvider {
   enum RetryStrategy {
     case immediate  // Parsing/encoding errors - retry immediately
     case shortBackoff  // Network timeouts - retry with 2s, 4s, 8s
-    case longBackoff  // Rate limits - retry with 30s, 60s, 120s
+    case longBackoff  // Rate limits - retry with 10s, 20s, 30s
     case enhancedPrompt  // Validation errors - retry with enhanced prompt
     case noRetry  // Auth/permanent errors - don't retry
   }
@@ -47,8 +47,9 @@ extension GeminiDirectProvider {
 
       case "GeminiError":
         switch nsError.code {
-        // Rate limiting
-        case 429:
+        // Rate limiting / high demand. These only reach here on the last model in the
+        // chain, since earlier models switch to the next one instead of retrying.
+        case 429, 503:
           return .longBackoff
         // Server errors
         case 500...599:
@@ -82,7 +83,7 @@ extension GeminiDirectProvider {
     case .shortBackoff:
       return pow(2.0, Double(attempt)) * 2.0  // 2s, 4s, 8s
     case .longBackoff:
-      return Double(min(3, attempt + 1))  // 1s, 2s, 3s (capped)
+      return Double(min(30, (attempt + 1) * 10))  // 10s, 20s, 30s (capped)
     case .enhancedPrompt:
       return 1.0  // Brief delay for enhanced prompt
     case .noRetry:

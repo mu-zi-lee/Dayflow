@@ -38,6 +38,11 @@ final class DailyRecapScheduler: @unchecked Sendable {
     timer.schedule(deadline: .now() + checkInterval, repeating: checkInterval)
     timer.setEventHandler { [weak self] in
       self?.triggerCheckOnQueue(reason: "interval")
+      // The Daily brief rides the same 5-minute tick, so a Mac left open
+      // overnight still builds the brief once the new day starts at 4am.
+      Task { @MainActor in
+        DailyBriefStore.shared.runIfNeeded(trigger: "timer")
+      }
     }
     timer.resume()
     self.timer = timer

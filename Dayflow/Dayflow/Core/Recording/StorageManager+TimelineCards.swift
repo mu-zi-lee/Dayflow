@@ -954,23 +954,30 @@ extension StorageManager {
     }
   }
 
-  func fetchLastTimelineCard(endingBefore: Date) -> TimelineCardWithTimestamps? {
+  /// The card right before a batch: of the cards that start before it, the one ending last.
+  /// Its end can fall after the batch's start, because card times are rounded to the minute.
+  func fetchTimelineCardEndingLast(startingBefore: Date, excludingBatchId: Int64)
+    -> TimelineCardWithTimestamps?
+  {
     let decoder = JSONDecoder()
-    let beforeTs = Int(endingBefore.timeIntervalSince1970)
+    let beforeTs = Int(startingBefore.timeIntervalSince1970)
 
-    return try? timedRead("fetchLastTimelineCard(endingBefore:)") { db in
+    return try? timedRead("fetchTimelineCardEndingLast(startingBefore:)") { db in
+      let captureContext = try batchCaptureContext(in: db, batchId: excludingBatchId)
       guard
         let row = try Row.fetchOne(
           db,
           sql: """
                 SELECT *
                 FROM timeline_cards
-                WHERE end_ts <= ?
+                WHERE start_ts < ?
+                  AND batch_id IS NOT ?
+                  AND device_id = ?
                   AND is_deleted = 0
                 ORDER BY end_ts DESC, id DESC
                 LIMIT 1
             """,
-          arguments: [beforeTs]
+          arguments: [beforeTs, excludingBatchId, captureContext.deviceId]
         )
       else {
         return nil
@@ -1010,11 +1017,88 @@ extension StorageManager {
     }
   }
 
+  /// Writes an idle batch's card without touching other batches' cards. The only cards removed
+  /// are this batch's own earlier ones: an error card from a failed attempt, or output from an
+  /// earlier run. With `extendingCardId`, that previous idle card is stretched to `endTs`
+  /// instead of adding a new card.
+  func saveIdleBatchCard(
+    _ card: TimelineCardShell, startTs: Int, endTs: Int, batchId: Int64, extendingCardId: Int64?
+  ) -> (cardId: Int64?, deletedVideoPaths: [String]) {
+    let metadata = TimelineMetadata(
+      distractions: nil, appSites: nil, isBackupGenerated: nil, idle: card.idleMetadata)
+    let metadataString = (try? JSONEncoder().encode(metadata)).flatMap {
+      String(data: $0, encoding: .utf8)
+    }
+    let startDate = Date(timeIntervalSince1970: TimeInterval(startTs))
+    let (dayString, _, _) = startDate.getDayInfoFor4AMBoundary()
+
+    var cardId: Int64?
+    var videoPaths: [String] = []
+    try? timedWrite("saveIdleBatchCard") { db in
+      let captureContext = try batchCaptureContext(in: db, batchId: batchId)
+      videoPaths = try String.fetchAll(
+        db,
+        sql: """
+              SELECT video_summary_url FROM timeline_cards
+              WHERE batch_id = ? AND is_deleted = 0 AND video_summary_url IS NOT NULL
+          """, arguments: [batchId])
+      try db.execute(
+        sql: "UPDATE timeline_cards SET is_deleted = 1 WHERE batch_id = ? AND is_deleted = 0",
+        arguments: [batchId])
+
+      if let extendingCardId {
+        try db.execute(
+          sql: """
+                UPDATE timeline_cards
+                SET end = ?, end_ts = ?, metadata = ?
+                WHERE id = ? AND device_id = ? AND is_deleted = 0
+            """,
+          arguments: [card.endTimestamp, endTs, metadataString, extendingCardId,
+                      captureContext.deviceId])
+        cardId = db.changesCount > 0 ? extendingCardId : nil
+      } else {
+        try db.execute(
+          sql: """
+                INSERT INTO timeline_cards(
+                    batch_id, start, end, start_ts, end_ts, day, title,
+                    summary, category, subcategory, detailed_summary, metadata,
+                    device_id, source_platform, source_timezone_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+          arguments: [
+            batchId, card.startTimestamp, card.endTimestamp, startTs, endTs, dayString, card.title,
+            card.summary, card.category, card.subcategory, card.detailedSummary, metadataString,
+            captureContext.deviceId, captureContext.platform.rawValue, captureContext.timezoneId,
+          ])
+        cardId = db.lastInsertedRowID
+      }
+    }
+    return (cardId, videoPaths)
+  }
+
   func replaceTimelineCardsInRange(
     from: Date, to: Date, with newCards: [TimelineCardShell], batchId: Int64
   ) -> (insertedIds: [Int64], deletedVideoPaths: [String]) {
+    replaceTimelineCardsInRange(
+      from: from, to: to, with: newCards, batchId: batchId,
+      keepingNewerBatchesCardsStartingAfter: nil)
+  }
+
+  /// Soft-deletes the cards in the range and inserts the new ones.
+  ///
+  /// Pass `keepingNewerBatchesCardsStartingAfter` (this batch's start) when the caller never
+  /// showed its model the cards of newer batches, which happens when this batch finishes after a
+  /// newer one, such as a retry. Cards from batches that started later and that begin after that
+  /// moment then stay, even where clock times rounded to the minute make them overlap the range.
+  func replaceTimelineCardsInRange(
+    from: Date, to: Date, with newCards: [TimelineCardShell], batchId: Int64,
+    keepingNewerBatchesCardsStartingAfter keepAfter: Date?
+  ) -> (insertedIds: [Int64], deletedVideoPaths: [String]) {
     let fromTs = Int(from.timeIntervalSince1970)
     let toTs = Int(to.timeIntervalSince1970)
+    // Without a cutoff, the far-future default keeps nothing back.
+    let keepAfterTs = keepAfter.map { Int($0.timeIntervalSince1970) } ?? Int.max
 
     let encoder = JSONEncoder()
     var insertedIds: [Int64] = []
@@ -1041,7 +1125,10 @@ extension StorageManager {
                  AND is_deleted = 0
                  AND device_id = ?
                  AND (category != 'System' OR batch_id = ?)
-          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId])
+                 AND NOT (start_ts > ? AND COALESCE(batch_id, -1) IN (
+                   SELECT id FROM analysis_batches WHERE batch_start_ts > ?))
+          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId,
+                           keepAfterTs, keepAfterTs])
 
       videoPaths = videoRows.compactMap { $0["video_summary_url"] as? String }
 
@@ -1055,7 +1142,10 @@ extension StorageManager {
                  AND is_deleted = 0
                  AND device_id = ?
                  AND (category != 'System' OR batch_id = ?)
-          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId])
+                 AND NOT (start_ts > ? AND COALESCE(batch_id, -1) IN (
+                   SELECT id FROM analysis_batches WHERE batch_start_ts > ?))
+          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId,
+                           keepAfterTs, keepAfterTs])
 
       for _ in cardsToDelete {
         // Cards being deleted - no-op needed, just iterating to trigger side effects
@@ -1072,7 +1162,10 @@ extension StorageManager {
                  AND is_deleted = 0
                  AND device_id = ?
                  AND (category != 'System' OR batch_id = ?)
-          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId])
+                 AND NOT (start_ts > ? AND COALESCE(batch_id, -1) IN (
+                   SELECT id FROM analysis_batches WHERE batch_start_ts > ?))
+          """, arguments: [toTs, fromTs, fromTs, toTs, captureContext.deviceId, batchId,
+                           keepAfterTs, keepAfterTs])
 
       // Verify soft deletion (count remaining active cards)
       let remainingCount =

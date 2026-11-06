@@ -31,6 +31,8 @@ extension MainView {
       .overlay(alignment: .bottomTrailing) { timelineFailureToastOverlayContent }
       .overlay(alignment: .bottomTrailing) { screenRecordingPermissionNoticeOverlayContent }
       .overlay { categoryEditorOverlay }
+      .overlay { dailyBriefOverlayContent }
+      .animation(.easeOut(duration: 0.22), value: dailyBrief.isPresented)
   }
 
   // Layer 2: sheet + lifecycle + notifications + state-change reactions.
@@ -56,8 +58,9 @@ extension MainView {
           InactivityMonitor.shared.markHandledIfPending()
         }
       }
-      .onChange(of: selectedIcon) { _, newIcon in
+      .onChange(of: selectedIcon) { oldIcon, newIcon in
         handleTabSelectionChange(newIcon)
+        keepFlowAlive(leaving: oldIcon, entering: newIcon)
       }
       .onChange(of: selectedDate) { _, newDate in
         handleSelectedDateChange(newDate)
@@ -175,6 +178,8 @@ extension MainView {
     loadWeeklyTrackedMinutes()
     updateCardsToReviewCount()
     requestDailyGoalPromptIfNeeded()
+    dailyBrief.runIfNeeded(trigger: "launch")
+    presentDailyBriefIfNeeded(source: "timeline_open")
   }
 
   private func performMainLayoutOnDisappear() {
@@ -220,8 +225,13 @@ extension MainView {
       }
       updateCardsToReviewCount()
       loadWeeklyTrackedMinutes()
+      presentDailyBriefIfNeeded(source: "timeline_open")
     } else {
       showTimelineReview = false
+      // The brief lives over the Timeline panel, so leaving the tab closes it.
+      if dailyBrief.isPresented {
+        dailyBrief.dismiss()
+      }
     }
   }
 
@@ -347,6 +357,41 @@ extension MainView {
     }
     // Refresh weekly hours in case activities were added
     loadWeeklyTrackedMinutes()
+    // A new day may have started while the app was in the background.
+    dailyBrief.loadToday()
+    dailyBrief.runIfNeeded(trigger: "app_active")
+  }
+
+  // MARK: - Daily brief
+
+  /// Pops the brief up when the Timeline is shown and today's brief hasn't
+  /// been seen yet. A brief that finishes while the user is already on the
+  /// Timeline doesn't pop up; the ready notice announces it instead.
+  func presentDailyBriefIfNeeded(source: String) {
+    guard selectedIcon == .timeline,
+      dailyBrief.shouldAutoPresent,
+      !dailyBrief.isPresented,
+      goalFlowPresentation == nil
+    else {
+      return
+    }
+    showTimelineReview = false
+    dailyBrief.present(source: source)
+  }
+
+  /// The brief covers the main panel only: the 80pt sidebar column and the
+  /// 15pt window padding stay visible, matching the "In-tab overlay" design.
+  @ViewBuilder
+  private var dailyBriefOverlayContent: some View {
+    if dailyBrief.isPresented, goalFlowPresentation == nil {
+      DailyBriefOverlay()
+        .padding(.leading, 80)
+        .padding([.top, .trailing, .bottom], 15)
+        // Match the main panel, which also ignores the title bar inset.
+        .ignoresSafeArea()
+        .transition(.opacity)
+        .zIndex(20)
+    }
   }
 
   private func handleTimelineFailureToastOpenSettings(_ payload: TimelineFailureToastPayload) {
@@ -749,5 +794,23 @@ private struct ScreenRecordingPermissionNoticeView: View {
         .stroke(theme.popoverBorder, lineWidth: 1)
     )
     .shadow(color: Color.black.opacity(0.12), radius: 12, x: 0, y: 6)
+  }
+}
+
+extension MainView {
+  /// Keeps Flow loaded for `flowKeepAlive` after the user leaves its tab, then lets it go.
+  func keepFlowAlive(leaving oldIcon: SidebarIcon, entering newIcon: SidebarIcon) {
+    if newIcon == .flow {
+      flowTeardown?.cancel()
+      flowTeardown = nil
+      flowAlive = true
+    } else if oldIcon == .flow {
+      flowTeardown?.cancel()
+      flowTeardown = Task { @MainActor in
+        try? await Task.sleep(for: MainView.flowKeepAlive)
+        guard !Task.isCancelled, selectedIcon != .flow else { return }
+        flowAlive = false
+      }
+    }
   }
 }
