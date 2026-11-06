@@ -8,7 +8,8 @@ final class LocalizationTests: XCTestCase {
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
     defer { defaults.removePersistentDomain(forName: suiteName) }
     AppLanguagePreferences.setSelection(.japanese, in: defaults)
-    XCTAssertEqual(defaults.stringArray(forKey: "AppleLanguages"), ["ja"])
+    XCTAssertEqual(
+      defaults.persistentDomain(forName: suiteName)?["AppleLanguages"] as? [String], ["ja"])
     AppLanguagePreferences.setSelection(.system, in: defaults)
     XCTAssertNil(defaults.persistentDomain(forName: suiteName)?["AppleLanguages"])
   }
