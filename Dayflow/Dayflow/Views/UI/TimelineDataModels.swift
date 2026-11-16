@@ -69,6 +69,13 @@ struct TimelineActivity: Identifiable {
     self.sourceTimezoneId = sourceTimezoneId
   }
 
+  /// What the card shows as its title when the batch is waiting rather than failed, such as
+  /// "Waiting for Claude". The stored title stays "Processing failed" so retry code finds it.
+  var waitingTitle: String? {
+    guard title == "Processing failed", subcategory.hasPrefix("Waiting") else { return nil }
+    return subcategory
+  }
+
   static func stableId(
     recordId: Int64?, batchId: Int64?, startTime: Date, endTime: Date, title: String,
     category: String, subcategory: String

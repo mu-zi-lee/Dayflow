@@ -110,6 +110,32 @@ struct DayflowReferralSummary: Codable, Equatable {
   }
 }
 
+/// One interval's price, from `GET /v1/billing/offer`. Yearly amounts are per year.
+struct DayflowOfferPrice: Decodable, Equatable {
+  /// What checkout charges.
+  let amountCents: Int
+  let currency: String
+
+  private enum CodingKeys: String, CodingKey {
+    case amountCents = "amount_cents"
+    case currency
+  }
+}
+
+struct DayflowPlanPrices: Decodable, Equatable {
+  let monthly: DayflowOfferPrice
+  let yearly: DayflowOfferPrice
+}
+
+/// Both plans at the prices this account is offered. Prices are part of a price test, so they can
+/// differ between accounts; Plus is in the local currency where Dayflow has one, Pro is always USD.
+struct DayflowBillingOffer: Decodable, Equatable {
+  /// The price test arm this account is on, such as "control" or "price_15".
+  let variant: String?
+  let plus: DayflowPlanPrices
+  let pro: DayflowPlanPrices
+}
+
 enum DayflowBillingInterval: String, CaseIterable, Identifiable, Codable {
   case monthly
   case yearly
@@ -518,6 +544,28 @@ final class DayflowAuthManager: ObservableObject {
     } else if case DayflowAuthError.busy? = error {
       errorText = String(localized: "Dayflow was busy and could not open checkout. Try again.")
     }
+  }
+
+  /// Where to download the Privacy Shield model. The backend answers only for an active Pro or Plus plan
+  /// (402 otherwise). Runs outside `perform` so it never blocks or overwrites the account screen's state.
+  func privacyModelDownload() async throws -> PrivacyModelDownload {
+    guard let token = retrieveSessionToken() else {
+      throw DayflowAuthError.unauthorized
+    }
+    var request = try makeRequest(path: "/v1/privacy-model", method: "GET")
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    return try await send(request)
+  }
+
+  /// The Dayflow Plus and Pro prices this account is offered. Checkout charges exactly these.
+  /// Runs outside `perform`.
+  func billingOffer() async throws -> DayflowBillingOffer {
+    guard let token = retrieveSessionToken() else {
+      throw DayflowAuthError.unauthorized
+    }
+    var request = try makeRequest(path: "/v1/billing/offer", method: "GET")
+    request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    return try await send(request)
   }
 
   /// Waits for a request already in flight, for a few seconds at most.

@@ -3,7 +3,7 @@
 //  Dayflow
 //
 //  Builds one day's Daily brief: gathers yesterday's cards and a screenshot per
-//  card, then runs two `claude -p` (Opus) runs at the same time, each with web
+//  card, then runs two `claude -p` runs at the same time, each with web
 //  search, the user's own connectors (read-only), and Dayflow's MCP server. One
 //  run writes the docket; the other writes every other section and is the only
 //  one that sees the screenshots. The two answers are merged in code into one
@@ -30,7 +30,7 @@ enum DailyBriefGenerator {
   enum Part: String, CaseIterable, Sendable {
     /// "Your docket today" only.
     case docket
-    /// Every other section, using the candidate screenshots.
+    /// Every other section.
     case extras
 
     var displayName: String {
@@ -60,7 +60,9 @@ enum DailyBriefGenerator {
     var kinds: [DailyBriefSectionKind] {
       switch self {
       case .docket: return [.docket]
-      case .extras: return DailyBriefSectionKind.allCases.filter { $0 != .docket }
+      // Recent site-seeing is switched off for now.
+      case .extras:
+        return DailyBriefSectionKind.allCases.filter { $0 != .docket && $0 != .siteSeeing }
       }
     }
   }
@@ -86,6 +88,8 @@ enum DailyBriefGenerator {
     var errorDescription: String? { message }
   }
 
+  /// Both runs use Opus. Spring used to try Fable first (it wrote slightly better lists in
+  /// testing), but at Fable's price that run was most of a brief's cost.
   static let model = "opus"
   static let runTimeoutSeconds: TimeInterval = 20 * 60
   /// More candidates than this are evenly sampled down, to keep the run's reading sane.
@@ -140,14 +144,15 @@ enum DailyBriefGenerator {
     let candidatesDirectory = runDirectory.appendingPathComponent("candidates", isDirectory: true)
     // So the footer never opens an older run's transcript for a part that failed early.
     for part in Part.allCases {
-      try? FileManager.default.removeItem(at: DailyBriefStore.transcriptURL(for: input.day, part: part))
+      try? FileManager.default.removeItem(
+        at: DailyBriefStore.transcriptURL(for: input.day, part: part))
     }
 
     let categories = CategoryPersistence.loadPersistedCategories()
     let cards = nonIdleCards(
       StorageManager.shared.fetchTimelineCards(forDay: input.sourceDay), categories: categories)
     guard !cards.isEmpty else {
-      throw GenerationError(message: "There's no activity from yesterday to build a brief from.")
+      throw GenerationError(message: "There's no recent activity to build a brief from.")
     }
 
     let candidates = exportCandidates(for: cards, into: candidatesDirectory)
@@ -155,6 +160,7 @@ enum DailyBriefGenerator {
       "USER_NAME": userName(),
       "TODAY_LONG": longDate(input.day),
       "YESTERDAY_LONG": longDate(input.sourceDay),
+      "SOURCE_DAY_SENTENCE": sourceDaySentence(day: input.day, sourceDay: input.sourceDay),
       "TIMEZONE": TimeZone.current.identifier,
       "YESTERDAY_CARDS": cardLines(cards),
       "CATEGORIES_WITH_DESCRIPTIONS": categoryLines(categories),
@@ -176,6 +182,8 @@ enum DailyBriefGenerator {
       var partValues = values
       if part == .docket {
         partValues["YESTERDAY_CARDS"] = detailedCardLines
+        // Read here, on the docket's own thread, so the scan overlaps the other run.
+        partValues["RECENT_AGENT_THREADS"] = DailyBriefThreadIndex.promptBlock()
       }
       let outcome = Result {
         try runPart(
@@ -272,15 +280,20 @@ enum DailyBriefGenerator {
 
     let options = try commandOptions(
       part: part, runDirectory: runDirectory, candidatesDirectory: candidatesDirectory)
-    let run = try runStructuredClaude(
-      prompt: prompt,
-      options: options,
-      workingDirectory: runDirectory,
-      timeoutSeconds: runTimeoutSeconds,
-      transcriptURL: DailyBriefStore.transcriptURL(for: input.day, part: part),
-      tooLongMessage:
-        "Claude took longer than 20 minutes on your brief, so Dayflow stopped it. Try again."
-    )
+    func runClaude(model: String) throws -> StructuredClaudeResult {
+      try runStructuredClaude(
+        prompt: prompt,
+        options: options,
+        workingDirectory: runDirectory,
+        timeoutSeconds: runTimeoutSeconds,
+        transcriptURL: DailyBriefStore.transcriptURL(for: input.day, part: part),
+        tooLongMessage:
+          "Claude took longer than 20 minutes on your brief, so Dayflow stopped it. Try again.",
+        model: model
+      )
+    }
+
+    let run = try runClaude(model: model)
 
     var stats = run.stats
     stats.promptCharacters = prompt.count
@@ -317,10 +330,22 @@ enum DailyBriefGenerator {
     result.inputTokens = sum(a.inputTokens, b.inputTokens)
     result.outputTokens = sum(a.outputTokens, b.outputTokens)
     result.cacheReadTokens = sum(a.cacheReadTokens, b.cacheReadTokens)
+    result.cacheWriteTokens = sum(a.cacheWriteTokens, b.cacheWriteTokens)
+    if a.modelCosts != nil || b.modelCosts != nil {
+      result.modelCosts = (a.modelCosts ?? [:]).merging(b.modelCosts ?? [:], uniquingKeysWith: +)
+    }
+    // The two runs go side by side, so the longer one is how long the brief took.
+    if a.apiSeconds != nil || b.apiSeconds != nil {
+      result.apiSeconds = max(a.apiSeconds ?? 0, b.apiSeconds ?? 0)
+    }
     result.numTurns = sum(a.numTurns, b.numTurns)
     result.promptCharacters = sum(a.promptCharacters, b.promptCharacters)
     if a.toolCalls != nil || b.toolCalls != nil {
       result.toolCalls = (a.toolCalls ?? [:]).merging(b.toolCalls ?? [:], uniquingKeysWith: +)
+    }
+    if a.connectors != nil || b.connectors != nil {
+      // Both runs get the same connectors, so either side's status will do.
+      result.connectors = (a.connectors ?? [:]).merging(b.connectors ?? [:]) { first, _ in first }
     }
     result.usedPromptOverride = a.usedPromptOverride || b.usedPromptOverride
     return result
@@ -482,6 +507,20 @@ enum DailyBriefGenerator {
     return firstName.isEmpty ? "the user" : firstName
   }
 
+  /// Says which day the brief is built from. That's yesterday unless they were away from
+  /// the computer (a weekend, a day off), when it's the last day they used it.
+  private static func sourceDaySentence(day: String, sourceDay: String) -> String {
+    let formatter = DateFormatter.yyyyMMdd
+    if let today = formatter.date(from: day), let source = formatter.date(from: sourceDay),
+      Calendar.current.dateComponents([.day], from: source, to: today).day == 1
+    {
+      return "Yesterday was \(longDate(sourceDay))."
+    }
+    return
+      "They weren't at their computer yesterday. Their last day on it was \(longDate(sourceDay)), "
+      + "and wherever this prompt says \"yesterday\", it means that day."
+  }
+
   /// "2026-10-22" -> "Thursday, October 22, 2026"
   private static func longDate(_ day: String) -> String {
     guard let date = DateFormatter.yyyyMMdd.date(from: day) else { return day }
@@ -533,17 +572,23 @@ enum DailyBriefGenerator {
         case .docket:
           lines += (content.docket ?? []).map { "- docket: \($0.title)" }
         case .keepTracking:
-          lines += (content.keepTracking ?? []).map { "- keep_tracking: \($0.label) — \($0.status)" }
+          lines += (content.keepTracking ?? []).map {
+            "- keep_tracking: \($0.label) — \($0.status)"
+          }
         case .completedYesterday:
           lines += (content.completedYesterday ?? []).map { "- completed_yesterday: \($0.title)" }
         case .teamDecisions:
           lines += (content.teamDecisions ?? []).map { "- team_decisions: \($0.decision)" }
         case .relatedReading:
-          lines += (content.relatedReading ?? []).map { "- related_reading: \($0.title) (\($0.url))" }
+          lines += (content.relatedReading ?? []).map {
+            "- related_reading: \($0.title) (\($0.url))"
+          }
         case .industryNews:
-          lines += (content.industryNews ?? []).map { "- industry_news: \($0.headline) (\($0.url))" }
+          lines += (content.industryNews ?? []).map {
+            "- industry_news: \($0.headline) (\($0.url))"
+          }
         case .siteSeeing:
-          lines += (content.siteSeeing ?? []).map { "- site_seeing: \($0.caption ?? $0.file)" }
+          break  // Not generated for now, so past picks aren't shown to the model either.
         }
       }
       guard !lines.isEmpty else { continue }
@@ -554,8 +599,9 @@ enum DailyBriefGenerator {
 
   // MARK: - Command
 
-  /// The docket run gets no screenshots, so it has no Read tool.
-  private static func commandOptions(part: Part, runDirectory: URL, candidatesDirectory: URL)
+  /// The docket run can read the person's Claude Code and Codex transcripts, to check whether
+  /// a task was already started; the other run can read its screenshots.
+  static func commandOptions(part: Part, runDirectory: URL, candidatesDirectory: URL)
     throws -> ClaudeCLIStructuredOutputOptions
   {
     // Each part writes its own files, since both runs start at the same time.
@@ -577,11 +623,20 @@ enum DailyBriefGenerator {
       settings["effortLevel"] = "medium"
     }
 
-    var tools = "WebSearch,WebFetch"
-    var allowedTools = ["WebSearch", "WebFetch"]
-    if part == .extras {
+    // ToolSearch lets Claude Code list the user's connector tools by name and load a
+    // tool's full definition only when the model needs it. Without it, every
+    // request carries every connector tool's definition: about 250k tokens for a
+    // user with many connectors, written to the 1-hour cache at double the input
+    // price on each run. That was most of a brief's cost.
+    var tools = "WebSearch,WebFetch,ToolSearch"
+    var allowedTools = ["WebSearch", "WebFetch", "ToolSearch"]
+    // Claude permission rules use // for absolute paths; / is project-relative.
+    switch part {
+    case .docket:
       tools = "Read," + tools
-      // Claude permission rules use // for absolute paths; / is project-relative.
+      allowedTools += DailyBriefThreadIndex.transcriptFolders.map { "Read(/\($0.path)/**)" }
+    case .extras:
+      tools = "Read," + tools
       allowedTools.append("Read(/\(candidatesDirectory.path)/**)")
     }
     allowedTools += dayflowReadTools.map { "mcp__dayflow__\($0)" }
@@ -735,6 +790,8 @@ enum DailyBriefGenerator {
         "feedbackSummary": stringSchema,
         "feedbackUrl": stringSchema,
         "attach": arraySchema(stringSchema),
+        "thread": stringSchema,
+        "newThreadApp": ["type": "string", "enum": ["claude", "codex"]],
         "why": stringSchema,
       ], required: ["title", "prompt", "agent", "why"])
     let trackingItem = objectSchema(
@@ -771,6 +828,8 @@ enum DailyBriefGenerator {
         "url": stringSchema,
         "reason": stringSchema,
         "imageUrl": stringSchema,
+        "hook": stringSchema,
+        "minutes": ["type": "integer"],
         "why": stringSchema,
       ], required: ["title", "url", "why"])
     let newsItem = objectSchema(
@@ -781,9 +840,6 @@ enum DailyBriefGenerator {
         "published": stringSchema,
         "why": stringSchema,
       ], required: ["headline", "url", "why"])
-    let siteSeeingItem = objectSchema(
-      ["file": stringSchema, "caption": stringSchema, "why": stringSchema],
-      required: ["file", "why"])
 
     if part == .docket {
       return objectSchema(
@@ -798,10 +854,8 @@ enum DailyBriefGenerator {
         "keep_tracking": arraySchema(trackingItem),
         "completed_yesterday": arraySchema(completedItem),
         "team_decisions": arraySchema(decisionItem),
-        "related_reading_intro": stringSchema,
         "related_reading": arraySchema(readingItem),
         "industry_news": arraySchema(newsItem),
-        "site_seeing": arraySchema(siteSeeingItem),
       ], required: ["notes", "order"])
   }
 
@@ -832,7 +886,8 @@ enum DailyBriefGenerator {
     workingDirectory: URL,
     timeoutSeconds: TimeInterval,
     transcriptURL: URL? = nil,
-    tooLongMessage: String
+    tooLongMessage: String,
+    model: String = DailyBriefGenerator.model
   ) throws -> StructuredClaudeResult {
     let runner = ChatCLIProcessRunner()
     let run: ChatCLIRunResult
@@ -1026,6 +1081,10 @@ enum DailyBriefGenerator {
       stats.inputTokens = (usage["input_tokens"] as? NSNumber)?.intValue
       stats.outputTokens = (usage["output_tokens"] as? NSNumber)?.intValue
       stats.cacheReadTokens = (usage["cache_read_input_tokens"] as? NSNumber)?.intValue
+      stats.cacheWriteTokens = (usage["cache_creation_input_tokens"] as? NSNumber)?.intValue
+    }
+    if let apiMilliseconds = (envelope["duration_api_ms"] as? NSNumber)?.doubleValue {
+      stats.apiSeconds = apiMilliseconds / 1000
     }
 
     // modelUsage is keyed by full model id; the one that wrote the most is the main model.
@@ -1034,8 +1093,21 @@ enum DailyBriefGenerator {
     }
     let modelUsage = envelope["modelUsage"] as? [String: Any] ?? [:]
     let mainModel = modelUsage.max(by: { outputTokens($0.value) < outputTokens($1.value) })
+    let modelCosts = modelUsage.compactMapValues {
+      (($0 as? [String: Any])?["costUSD"] as? NSNumber)?.doubleValue
+    }
+    stats.modelCosts = modelCosts.isEmpty ? nil : modelCosts
     let initEvent = events.first(where: { $0["type"] as? String == "system" })
     stats.model = mainModel?.key ?? (initEvent?["model"] as? String) ?? model
+
+    if let servers = initEvent?["mcp_servers"] as? [[String: Any]] {
+      var connectors: [String: String] = [:]
+      for server in servers {
+        guard let name = server["name"] as? String else { continue }
+        connectors[name] = server["status"] as? String ?? "unknown"
+      }
+      stats.connectors = connectors.isEmpty ? nil : connectors
+    }
 
     var toolCalls: [String: Int] = [:]
     for event in events where event["type"] as? String == "assistant" {
@@ -1097,13 +1169,13 @@ enum DailyBriefGenerator {
   // MARK: - Clean up the model's answer
 
   /// Trims text, drops empty or unlinkable items, keeps only real screenshots, and
-  /// copies the images the brief shows into `<day>/images/`.
+  /// puts the images the brief shows into `<day>/images/`: the screenshots it uses, and
+  /// each reading and news link's own picture, fetched from the web.
   private static func cleaned(
     _ content: DailyBriefContent, candidates: [Candidate], candidatesDirectory: URL, day: String
   ) -> DailyBriefContent {
     let imagesDirectory = DailyBriefStore.briefDirectory(for: day)
       .appendingPathComponent("images", isDirectory: true)
-    let candidateFiles = Set(candidates.map(\.file))
     var copiedFiles: Set<String> = []
 
     // Old images stay until replaced, so the brief on screen during a retry keeps its pictures.
@@ -1147,12 +1219,20 @@ enum DailyBriefGenerator {
             name: name, source: clean(note.source), text: text, url: webURL(note.url))
         }
         let attach = (item.attach ?? []).compactMap { clean($0) }
+        // A thread id that isn't shaped like a Codex or Claude Code one is dropped, so the
+        // task starts a new thread.
+        let thread = clean(item.thread).flatMap { DailyBriefAgent(threadID: $0) == nil ? nil : $0 }
+        // Only a new thread needs an app picked; an existing thread already has one.
+        let newThreadApp =
+          thread == nil
+          ? clean(item.newThreadApp).flatMap { DailyBriefAgent(appName: $0) == nil ? nil : $0 }
+          : nil
         return DailyBriefDocketItem(
           title: title, detail: clean(item.detail), due: clean(item.due),
           people: nonEmpty(people), links: nonEmpty(links),
           prompt: clean(item.prompt), agent: item.agent, feedback: nonEmpty(feedback),
           feedbackSummary: clean(item.feedbackSummary), feedbackUrl: webURL(item.feedbackUrl),
-          attach: nonEmpty(attach))
+          attach: nonEmpty(attach), thread: thread, newThreadApp: newThreadApp)
       })
 
     result.keepTracking = nonEmpty(
@@ -1182,36 +1262,40 @@ enum DailyBriefGenerator {
           place: clean(item.place), app: cleanApp(item.app), url: webURL(item.url))
       })
 
-    result.relatedReading = nonEmpty(
-      (content.relatedReading ?? []).compactMap { item -> DailyBriefReadingItem? in
-        guard let title = clean(item.title), let url = webURL(item.url) else { return nil }
-        return DailyBriefReadingItem(
-          title: title, source: clean(item.source), url: url, reason: clean(item.reason),
-          imageUrl: webURL(item.imageUrl))
-      })
+    var reading = (content.relatedReading ?? []).compactMap { item -> DailyBriefReadingItem? in
+      guard let title = clean(item.title), let url = webURL(item.url) else { return nil }
+      return DailyBriefReadingItem(
+        title: title, source: clean(item.source), url: url, reason: clean(item.reason),
+        imageUrl: webURL(item.imageUrl), hook: clean(item.hook),
+        minutes: item.minutes.flatMap { $0 > 0 ? $0 : nil })
+    }
+    var news = (content.industryNews ?? []).compactMap { item -> DailyBriefNewsItem? in
+      guard let headline = clean(item.headline), let url = webURL(item.url) else { return nil }
+      return DailyBriefNewsItem(
+        headline: headline, source: clean(item.source), url: url,
+        published: clean(item.published))
+    }
+
+    // Each link's own picture (the one the site shows when the page is shared), saved locally.
+    let links =
+      reading.map { DailyBriefLinkImages.Link(pageURL: $0.url, hintImageURL: $0.imageUrl) }
+      + news.map { DailyBriefLinkImages.Link(pageURL: $0.url, hintImageURL: nil) }
+    let linkPictures = DailyBriefLinkImages.save(links, into: imagesDirectory)
+    for index in reading.indices {
+      let picture = linkPictures[reading[index].url]
+      reading[index].imageFile = picture.map { "images/\($0.file)" }
+      reading[index].imageIsTitleCard = picture?.isTitleCard
+    }
+    for index in news.indices {
+      let picture = linkPictures[news[index].url]
+      news[index].imageFile = picture.map { "images/\($0.file)" }
+      news[index].imageIsTitleCard = picture?.isTitleCard
+    }
+
+    result.relatedReading = nonEmpty(reading)
     result.relatedReadingIntro =
       result.relatedReading == nil ? nil : clean(content.relatedReadingIntro)
-
-    result.industryNews = nonEmpty(
-      (content.industryNews ?? []).compactMap { item -> DailyBriefNewsItem? in
-        guard let headline = clean(item.headline), let url = webURL(item.url) else { return nil }
-        return DailyBriefNewsItem(
-          headline: headline, source: clean(item.source), url: url,
-          published: clean(item.published))
-      })
-
-    var seenSiteSeeingFiles: Set<String> = []
-    result.siteSeeing = nonEmpty(
-      (content.siteSeeing ?? []).compactMap { item -> DailyBriefSiteSeeingItem? in
-        // The model may echo a path; only the file name has to match a candidate.
-        guard let raw = clean(item.file) else { return nil }
-        let file = (raw as NSString).lastPathComponent
-        guard candidateFiles.contains(file), !seenSiteSeeingFiles.contains(file),
-          let copied = copyCandidate(file)
-        else { return nil }
-        seenSiteSeeingFiles.insert(file)
-        return DailyBriefSiteSeeingItem(file: copied, caption: clean(item.caption))
-      })
+    result.industryNews = nonEmpty(news)
 
     var order: [String] = []
     for name in content.order {

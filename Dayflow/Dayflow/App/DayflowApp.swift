@@ -465,7 +465,7 @@ struct DayflowApp: App {
           FlowSessionMirror.shared.simulateDistraction()
         }
         .keyboardShortcut("D", modifiers: [.command, .shift])
-        Button("Flow: Nudge Style — \(FlowNudgeVariant.current.title)") {
+        Button("Flow: Nudge Style: \(FlowNudgeVariant.current.title)") {
           FlowNudgeVariant.current = FlowNudgeVariant.current.next
           flowNudgeVariant = FlowNudgeVariant.current.rawValue
         }
@@ -559,6 +559,8 @@ extension Notification.Name {
     "showScreenRecordingPermissionNotice")
   static let openProvidersSettings = Notification.Name("openProvidersSettings")
   static let openAccountSettings = Notification.Name("openAccountSettings")
+  /// Switches the main window to Settings and opens its Account tab.
+  static let navigateToAccountSettings = Notification.Name("navigateToAccountSettings")
   static let navigateToFlow = Notification.Name("navigateToFlow")
   static let navigateToTimeline = Notification.Name("navigateToTimeline")
 }

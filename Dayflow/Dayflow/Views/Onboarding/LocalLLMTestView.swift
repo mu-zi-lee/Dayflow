@@ -162,7 +162,7 @@ struct LocalLLMTestView: View {
         VStack(alignment: .leading, spacing: 6) {
           SettingsStatusDot(state: .bad, label: msg)
           Text(
-            "If you get stuck here, you can go back and choose the ‘Bring your own key’ option — it only takes a minute to set up."
+            "If you get stuck here, you can go back and choose the ‘Bring your own key’ option. It only takes a minute to set up."
           )
           .font(.custom("Figtree", size: 12))
           .foregroundColor(SettingsStyle.secondary)
@@ -239,7 +239,7 @@ struct LocalLLMTestView: View {
         if http.statusCode == 200 {
           if requiresMeaningfulResponse {
             let decoded = try? JSONDecoder().decode(OllamaProvider.ChatResponse.self, from: data)
-            let content = decoded?.choices.first?.message.content.trimmingCharacters(
+            let content = decoded?.choices.first?.message.content?.trimmingCharacters(
               in: .whitespacesAndNewlines)
             guard let content, !content.isEmpty else {
               self.resultMessage = String(

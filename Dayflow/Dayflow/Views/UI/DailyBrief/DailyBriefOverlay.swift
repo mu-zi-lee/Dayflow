@@ -4,7 +4,9 @@
 //
 //  The Daily brief as an in-tab overlay: it covers the main panel (the sidebar
 //  stays visible), shows the brief page, and layers the current route
-//  (enlarged image, saved, everything completed, range summary) on top.
+//  (enlarged image, saved, everything completed, range summary) on top. The
+//  first time it opens, the "Introducing Dayflow Daily Briefs" walkthrough
+//  covers the page until it's finished or skipped.
 //
 
 import AppKit
@@ -27,13 +29,24 @@ struct DailyBriefOverlay: View {
           .transition(.opacity)
           .zIndex(1)
       }
+
+      if store.showsIntro {
+        DailyBriefIntroLayer()
+          .transition(.opacity)
+          .zIndex(2)
+      }
     }
     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     .animation(.easeOut(duration: 0.2), value: store.route)
+    .animation(.easeOut(duration: 0.45), value: store.showsIntro)
     .background(DailyBriefEscapeKeyHandler(onEscape: handleEscape))
   }
 
   private func handleEscape() {
+    if store.showsIntro {
+      store.finishIntro("skipped", step: store.introStep)
+      return
+    }
     // Docket menus and the "Tell us why" pop-up close before anything else.
     if DocketUIState.shared.closeTopPopup() { return }
     if store.route != nil {
@@ -76,6 +89,75 @@ private struct DailyBriefRouteLayer: View {
     case .rangeSummary(let range):
       DailyBriefRangeSummaryView(range: range)
     }
+  }
+}
+
+// MARK: - Closing into the sun button
+
+extension AnyTransition {
+  /// Fades in; on the way out, shrinks into the Timeline's sun button when it's on
+  /// screen, and simply fades otherwise.
+  @MainActor static var dailyBriefOverlay: AnyTransition {
+    guard let target = DailyBriefStore.shared.shrinkTarget else { return .opacity }
+    return .asymmetric(
+      insertion: .opacity,
+      removal: .modifier(
+        active: DailyBriefShrink(progress: 0, anchor: target.anchor, endScale: target.scale),
+        identity: DailyBriefShrink(progress: 1, anchor: target.anchor, endScale: target.scale)))
+  }
+}
+
+/// Scales the brief toward `anchor` until it's `endScale` of its size (the button's size),
+/// fading out over the last part so it reads as landing in the button.
+/// `progress` is 1 when fully open and 0 when it has landed.
+struct DailyBriefShrink: ViewModifier, Animatable {
+  var progress: Double
+  let anchor: UnitPoint
+  let endScale: CGSize
+
+  var animatableData: Double {
+    get { progress }
+    set { progress = newValue }
+  }
+
+  func body(content: Content) -> some View {
+    content
+      .scaleEffect(
+        x: endScale.width + (1 - endScale.width) * progress,
+        y: endScale.height + (1 - endScale.height) * progress,
+        anchor: anchor
+      )
+      .opacity(min(1, progress * 4))
+  }
+}
+
+/// Bounces the Timeline's sun button once the brief has shrunk into it.
+struct DailyBriefButtonLanding: ViewModifier {
+  @ObservedObject private var store = DailyBriefStore.shared
+  @State private var isBouncing = false
+
+  func body(content: Content) -> some View {
+    content
+      .scaleEffect(isBouncing ? 1.18 : 1)
+      .onChange(of: store.closedIntoButtonCount) {
+        // Wait for the brief to finish shrinking, then pop.
+        DispatchQueue.main.asyncAfter(deadline: .now() + DailyBriefMotion.closeDuration - 0.05) {
+          withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { isBouncing = true }
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { isBouncing = false }
+          }
+        }
+      }
+  }
+}
+
+enum DailyBriefMotion {
+  static let closeDuration = 0.45
+  /// Opening fades in quickly; closing eases into the button.
+  static func overlay(isPresented: Bool) -> Animation {
+    isPresented
+      ? .easeOut(duration: 0.22)
+      : .timingCurve(0.55, 0, 0.25, 1, duration: closeDuration)
   }
 }
 

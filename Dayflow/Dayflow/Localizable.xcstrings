@@ -4,6 +4,9 @@
     "" : {
 
     },
+    "\n" : {
+
+    },
     " - %@" : {
       "localizations" : {
         "de" : {
@@ -515,52 +518,6 @@
     "–" : {
 
     },
-    "— Jerry, who makes Dayflow" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Jerry, der Dayflow entwickelt"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Jerry, qui développe Dayflow"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Dayflow を作っている Jerry より"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Dayflow를 만드는 Jerry"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Jerry, создатель Dayflow"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Dayflow 的开发者 Jerry"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "— Dayflow 的開發者 Jerry"
-          }
-        }
-      }
-    },
     ", when they use Dayflow for a week." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -793,6 +750,9 @@
         }
       }
     },
+    "[here](https://dayflow.so/privacy)" : {
+
+    },
     "[no text detected on screen]" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -839,6 +799,9 @@
           }
         }
       }
+    },
+    "[Privacy Policy](https://dayflow.so/privacy)" : {
+
     },
     "[Resuming session %@] %@" : {
       "localizations" : {
@@ -984,7 +947,14 @@
         }
       }
     },
+    "/ month" : {
+
+    },
+    "/ month, billed annually" : {
+
+    },
     "/mo" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1567,6 +1537,9 @@
         }
       }
     },
+    "%@ isn't working" : {
+
+    },
     "%@ left" : {
       "comment" : "Break countdown; the argument is a m:ss clock such as 4:59.",
       "localizations" : {
@@ -1659,6 +1632,9 @@
           }
         }
       }
+    },
+    "%@ of recording is waiting." : {
+
     },
     "%@ pt" : {
       "localizations" : {
@@ -1804,10 +1780,10 @@
         }
       }
     },
-    "%@ transcript" : {
+    "%@ until your break ends." : {
 
     },
-    "%@ until your break ends." : {
+    "%@ waiting" : {
 
     },
     "%@ waiting to process" : {
@@ -1913,6 +1889,16 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@. %@ is already set up on this Mac, so Dayflow can use it whenever %@ isn't working. This uses your %@ plan." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@ is already set up on this Mac, so Dayflow can use it whenever %3$@ isn't working. This uses your %4$@ plan."
           }
         }
       }
@@ -2803,6 +2789,9 @@
         }
       }
     },
+    "%lld MONTHS FREE" : {
+
+    },
     "%lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -2904,6 +2893,9 @@
           }
         }
       }
+    },
+    "%lld stars" : {
+
     },
     "%lld times" : {
       "localizations" : {
@@ -4675,6 +4667,9 @@
     "1 hr" : {
 
     },
+    "1 MONTH FREE" : {
+
+    },
     "1 month of Dayflow Pro (stackable!)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4721,6 +4716,9 @@
           }
         }
       }
+    },
+    "1 star" : {
+
     },
     "1:1 suggestions" : {
       "localizations" : {
@@ -4999,6 +4997,7 @@
       }
     },
     "2 months free" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5641,6 +5640,9 @@
           }
         }
       }
+    },
+    "4 Hydrogen" : {
+
     },
     "4pm" : {
       "localizations" : {
@@ -6751,6 +6753,9 @@
         }
       }
     },
+    "A credit card number, an API key and a password being hidden" : {
+
+    },
     "A fresh look, light and dark + a new view for your agents" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7215,6 +7220,15 @@
         }
       }
     },
+    "Access to all premium features" : {
+
+    },
+    "Access to Dayflow Privacy Shield to redact personal and sensitive information" : {
+
+    },
+    "Access to Flow" : {
+
+    },
     "Accessibility" : {
 
     },
@@ -7499,6 +7513,9 @@
           }
         }
       }
+    },
+    "Add" : {
+
     },
     "Add a category to get started." : {
       "localizations" : {
@@ -7964,6 +7981,12 @@
         }
       }
     },
+    "Adult" : {
+
+    },
+    "Adult sites." : {
+
+    },
     "Advance" : {
       "localizations" : {
         "de" : {
@@ -8240,6 +8263,9 @@
           }
         }
       }
+    },
+    "Ag" : {
+
     },
     "Agent log (%lld)" : {
       "extractionState" : "stale",
@@ -8801,6 +8827,9 @@
         }
       }
     },
+    "All premium features without usage limits" : {
+
+    },
     "All set!" : {
       "localizations" : {
         "de" : {
@@ -8846,6 +8875,9 @@
           }
         }
       }
+    },
+    "All the basic features, plus:" : {
+
     },
     "Allow edits" : {
       "localizations" : {
@@ -8984,6 +9016,12 @@
           }
         }
       }
+    },
+    "Already have an account?" : {
+
+    },
+    "Also hide these sites" : {
+
     },
     "AM" : {
       "extractionState" : "stale",
@@ -9132,9 +9170,6 @@
           }
         }
       }
-    },
-    "Anthropic released Claude Haiku 5.5 last week, and Claude users now run on it. Expect increased quality and a 90% reduction in cost. Dayflow now only consumes roughly a dollar a week of your usage limits (under 1% of the usage limits on the $20 plan)." : {
-
     },
     "Anthropic's Claude Code command-line helper" : {
       "localizations" : {
@@ -9458,6 +9493,9 @@
         }
       }
     },
+    "API keys" : {
+
+    },
     "App language" : {
       "localizations" : {
         "de" : {
@@ -9779,6 +9817,12 @@
           }
         }
       }
+    },
+    "Apps" : {
+
+    },
+    "Apps Dayflow should hide whenever they're in front." : {
+
     },
     "Ask about your Dayflow data" : {
       "localizations" : {
@@ -10339,6 +10383,15 @@
         }
       }
     },
+    "Bank accounts" : {
+
+    },
+    "Banking and finance" : {
+
+    },
+    "Banks, brokerages, card issuers and payment sites." : {
+
+    },
     "Base URL" : {
       "localizations" : {
         "de" : {
@@ -10523,7 +10576,17 @@
         }
       }
     },
+    "Big privacy advancements for Dayflow" : {
+
+    },
+    "billed annually" : {
+
+    },
+    "billed monthly" : {
+
+    },
     "Billed yearly." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -11221,6 +11284,9 @@
         }
       }
     },
+    "Browser didn't open? Try again" : {
+
+    },
     "Browsing TripAdvisor" : {
       "localizations" : {
         "de" : {
@@ -11501,6 +11567,7 @@
       }
     },
     "Cancel any time. No-questions-asked refunds." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -11783,6 +11850,9 @@
         }
       }
     },
+    "Card number" : {
+
+    },
     "Card summaries" : {
       "localizations" : {
         "de" : {
@@ -12014,6 +12084,9 @@
           }
         }
       }
+    },
+    "Catches up after you sign in" : {
+
     },
     "Categories" : {
       "localizations" : {
@@ -13416,6 +13489,7 @@
       }
     },
     "Choose apps Dayflow should hide from screenshots." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -13783,6 +13857,9 @@
         }
       }
     },
+    "Choose what Dayflow should hide from screenshots." : {
+
+    },
     "Choose which Gemini model Dayflow should prioritize." : {
       "localizations" : {
         "de" : {
@@ -13876,6 +13953,7 @@
       }
     },
     "Choose your Gemini model. We recommend 3.8 Flash, with 3.5 Flash-Lite available as a fallback." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -13920,6 +13998,9 @@
           }
         }
       }
+    },
+    "Choose your Gemini model. We recommend 4 Hydrogen, with the Flash models available as fallbacks." : {
+
     },
     "Choose your local AI engine" : {
       "localizations" : {
@@ -14013,6 +14094,9 @@
           }
         }
       }
+    },
+    "Chrome incognito, Safari private windows and Firefox private browsing get a redaction card instead of a screenshot." : {
+
     },
     "claude" : {
       "extractionState" : "stale",
@@ -14257,18 +14341,18 @@
         }
       }
     },
-    "Claude CLI returned an error. You may need to sign in — run 'claude login' in Terminal." : {
+    "Claude CLI returned an error. You may need to sign in: run 'claude login' in Terminal." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Claude CLI hat einen Fehler zurückgegeben. Möglicherweise musst du dich anmelden — führe „claude login“ im Terminal aus."
+            "value" : "Claude CLI hat einen Fehler zurückgegeben. Möglicherweise musst du dich anmelden, führe „claude login“ im Terminal aus."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Claude CLI a renvoyé une erreur. Vous devrez peut-être vous connecter — exécutez « claude login » dans Terminal."
+            "value" : "Claude CLI a renvoyé une erreur. Vous devrez peut-être vous connecter, exécutez « claude login » dans Terminal."
           }
         },
         "ja" : {
@@ -14286,19 +14370,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Claude CLI вернул ошибку. Возможно, вам нужно войти — выполните команду 'claude login' в Терминале."
+            "value" : "Claude CLI вернул ошибку. Возможно, вам нужно войти, выполните команду 'claude login' в Терминале."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Claude CLI 返回错误。你可能需要登录 — 请在终端中运行 'claude login'。"
+            "value" : "Claude CLI 返回错误。你可能需要登录, 请在终端中运行 'claude login'。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Claude CLI 傳回錯誤。你可能需要登入 — 請在「終端機」中執行 'claude login'。"
+            "value" : "Claude CLI 傳回錯誤。你可能需要登入, 請在「終端機」中執行 'claude login'。"
           }
         }
       }
@@ -14854,9 +14938,6 @@
           }
         }
       }
-    },
-    "Claude users now run on Haiku 5.5" : {
-
     },
     "Clear" : {
       "localizations" : {
@@ -15459,6 +15540,12 @@
     "Click to edit" : {
 
     },
+    "Click to fix" : {
+
+    },
+    "Click to sign in" : {
+
+    },
     "Close" : {
       "localizations" : {
         "de" : {
@@ -15919,18 +16006,18 @@
         }
       }
     },
-    "Codex CLI returned an error. You may need to sign in — run 'codex login' in Terminal." : {
+    "Codex CLI returned an error. You may need to sign in: run 'codex login' in Terminal." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Codex CLI hat einen Fehler zurückgegeben. Möglicherweise musst du dich anmelden — führe „codex login“ im Terminal aus."
+            "value" : "Codex CLI hat einen Fehler zurückgegeben. Möglicherweise musst du dich anmelden, führe „codex login“ im Terminal aus."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Codex CLI a renvoyé une erreur. Vous devrez peut-être vous connecter — exécutez « codex login » dans Terminal."
+            "value" : "Codex CLI a renvoyé une erreur. Vous devrez peut-être vous connecter, exécutez « codex login » dans Terminal."
           }
         },
         "ja" : {
@@ -15948,19 +16035,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Codex CLI вернул ошибку. Возможно, вам нужно войти — выполните команду 'codex login' в Терминале."
+            "value" : "Codex CLI вернул ошибку. Возможно, вам нужно войти, выполните команду 'codex login' в Терминале."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Codex CLI 返回错误。你可能需要登录 — 请在终端中运行 'codex login'。"
+            "value" : "Codex CLI 返回错误。你可能需要登录, 请在终端中运行 'codex login'。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Codex CLI 傳回錯誤。你可能需要登入 — 請在「終端機」中執行 'codex login'。"
+            "value" : "Codex CLI 傳回錯誤。你可能需要登入, 請在「終端機」中執行 'codex login'。"
           }
         }
       }
@@ -18344,6 +18431,7 @@
       }
     },
     "Continue to checkout" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -19124,9 +19212,6 @@
           }
         }
       }
-    },
-    "Copy stats" : {
-
     },
     "Copy terminal command" : {
       "localizations" : {
@@ -20189,6 +20274,9 @@
         }
       }
     },
+    "Credit cards" : {
+
+    },
     "Crowded" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -20235,6 +20323,9 @@
           }
         }
       }
+    },
+    "Crypto wallets" : {
+
     },
     "Cube" : {
       "extractionState" : "stale",
@@ -20328,6 +20419,9 @@
           }
         }
       }
+    },
+    "Current subscription" : {
+
     },
     "Cursor" : {
       "localizations" : {
@@ -20466,9 +20560,6 @@
           }
         }
       }
-    },
-    "Custom prompt" : {
-
     },
     "Customize the local model prompts for summary and title generation." : {
       "localizations" : {
@@ -20610,6 +20701,7 @@
       }
     },
     "Daily and weekly reports without provider setup" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -20654,6 +20746,9 @@
           }
         }
       }
+    },
+    "Daily brief" : {
+
     },
     "Daily generation returned no usable items for %@." : {
       "localizations" : {
@@ -21116,6 +21211,12 @@
         }
       }
     },
+    "Dating" : {
+
+    },
+    "Dating apps and matchmaking sites." : {
+
+    },
     "Day" : {
       "localizations" : {
         "de" : {
@@ -21354,6 +21455,7 @@
       }
     },
     "Dayflow account" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -21675,6 +21777,9 @@
         }
       }
     },
+    "Dayflow can now leave out private browsing windows and automatically screen out banking, health, government and tax, dating and other sensitive sites, plus any sites you add. Set it up in Settings › Privacy." : {
+
+    },
     "Dayflow can run entirely on local AI models, which means your data never leaves your computer. You can also find the source code below - please consider giving it a star on Github!" : {
       "localizations" : {
         "de" : {
@@ -21862,6 +21967,9 @@
     "Dayflow catches up automatically" : {
 
     },
+    "Dayflow checks the front browser window on your Mac and never sends the address anywhere. It stores whether a window was private and which category matched, never the address itself." : {
+
+    },
     "Dayflow couldn't finish saving this provider. Please try again." : {
       "localizations" : {
         "de" : {
@@ -21954,7 +22062,7 @@
         }
       }
     },
-    "Dayflow couldn't open its database and has to quit. This usually happens when the disk is full — free up some space and open Dayflow again.\n\nError: %@" : {
+    "Dayflow couldn't open its database and has to quit. This usually happens when the disk is full. Free up some space and open Dayflow again.\n\nError: %@" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -21989,13 +22097,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Dayflow 无法打开数据库，必须退出。这通常是因为磁盘已满 — 请释放一些空间，然后重新打开 Dayflow。\n\n错误：%@"
+            "value" : "Dayflow 无法打开数据库，必须退出。这通常是因为磁盘已满, 请释放一些空间，然后重新打开 Dayflow。\n\n错误：%@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Dayflow 無法開啟資料庫，因此必須結束。這通常是因為磁碟已滿 — 請釋出一些空間，然後重新開啟 Dayflow。\n\n錯誤：%@"
+            "value" : "Dayflow 無法開啟資料庫，因此必須結束。這通常是因為磁碟已滿, 請釋出一些空間，然後重新開啟 Dayflow。\n\n錯誤：%@"
           }
         }
       }
@@ -22840,6 +22948,9 @@
       }
     },
     "Dayflow Plus" : {
+
+    },
+    "Dayflow Privacy Shield" : {
 
     },
     "Dayflow Pro" : {
@@ -24622,9 +24733,6 @@
         }
       }
     },
-    "Distraction alerts while a session is running" : {
-
-    },
     "Distraction budget" : {
       "localizations" : {
         "de" : {
@@ -25131,6 +25239,9 @@
           }
         }
       }
+    },
+    "Downgrade subscription" : {
+
     },
     "Download" : {
       "localizations" : {
@@ -25922,6 +26033,9 @@
           }
         }
       }
+    },
+    "Each morning, Claude Code reads yesterday's timeline and your connected apps and writes you a brief. Runs on your Claude plan." : {
+
     },
     "Each morning's brief adds what you finished the day before." : {
 
@@ -28105,7 +28219,16 @@
         }
       }
     },
+    "Everything in Plus and more:" : {
+
+    },
     "Everything you completed" : {
+
+    },
+    "example.com" : {
+
+    },
+    "Exchanges and wallet interfaces." : {
 
     },
     "Executive" : {
@@ -28805,7 +28928,7 @@
         }
       }
     },
-    "Fable reads today's Claude Code and Codex sessions and builds a review of everything your agents did — grouped by workstream, thread by thread." : {
+    "Fable reads today's Claude Code and Codex sessions and builds a review of everything your agents did, grouped by workstream, thread by thread." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -28834,19 +28957,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Fable анализирует сегодняшние сеансы Claude Code и Codex и составляет обзор всего, что сделали ваши агенты, — по направлениям работы и отдельным веткам."
+            "value" : "Fable анализирует сегодняшние сеансы Claude Code и Codex и составляет обзор всего, что сделали ваши агенты,, по направлениям работы и отдельным веткам."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Fable 会读取今天的 Claude Code 和 Codex 对话，并汇总你的智能体完成的所有工作——按工作流分组，逐个对话呈现。"
+            "value" : "Fable 会读取今天的 Claude Code 和 Codex 对话，并汇总你的智能体完成的所有工作, , 按工作流分组，逐个对话呈现。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Fable 會讀取今天的 Claude Code 和 Codex 工作階段，並回顧你的代理程式完成的所有工作——依工作流程分組，逐一對話呈現。"
+            "value" : "Fable 會讀取今天的 Claude Code 和 Codex 工作階段，並回顧你的代理程式完成的所有工作, , 依工作流程分組，逐一對話呈現。"
           }
         }
       }
@@ -29548,6 +29671,9 @@
         }
       }
     },
+    "Finish signing in" : {
+
+    },
     "First cards on your timeline" : {
       "localizations" : {
         "de" : {
@@ -29595,6 +29721,7 @@
       }
     },
     "Flexible monthly billing." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -29685,9 +29812,6 @@
           }
         }
       }
-    },
-    "Flow focus sessions with your island companion" : {
-
     },
     "Flow helps you plan your day and find your way back when you get distracted." : {
       "extractionState" : "stale",
@@ -29786,9 +29910,6 @@
     "Flow is limited for now" : {
 
     },
-    "Flow is unlocked on this Mac and attached to your Dayflow account." : {
-
-    },
     "Flow isn't available for your account yet." : {
 
     },
@@ -29848,48 +29969,48 @@
     "Flow watches your screen during a session to keep you on track, and that takes a level of intelligence Gemini and local models can't reach yet. Switch your provider to Claude, ChatGPT or Dayflow Pro in Settings to use Flow." : {
 
     },
-    "Flow: Nudge Style — %@" : {
+    "Flow: Nudge Style: %@" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow: Hinweisstil — %@"
+            "value" : "Flow: Hinweisstil: %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow : style de rappel — %@"
+            "value" : "Flow : style de rappel: %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow：ナッジのスタイル — %@"
+            "value" : "Flow：ナッジのスタイル: %@"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow: 넛지 스타일 — %@"
+            "value" : "Flow: 넛지 스타일: %@"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow: стиль подсказок — %@"
+            "value" : "Flow: стиль подсказок: %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow：提醒风格 — %@"
+            "value" : "Flow：提醒风格: %@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Flow：提醒風格 — %@"
+            "value" : "Flow：提醒風格: %@"
           }
         }
       }
@@ -30867,9 +30988,6 @@
         }
       }
     },
-    "Free trial" : {
-
-    },
     "Fri" : {
       "localizations" : {
         "de" : {
@@ -31422,6 +31540,9 @@
           }
         }
       }
+    },
+    "Gemini 4 Hydrogen" : {
+
     },
     "Gemini API" : {
       "localizations" : {
@@ -32301,6 +32422,9 @@
         }
       }
     },
+    "Get started" : {
+
+    },
     "Get your Gemini API key" : {
       "localizations" : {
         "de" : {
@@ -32347,10 +32471,14 @@
         }
       }
     },
+    "Getting Privacy Shield ready. Screenshots are saved as usual until it's done." : {
+
+    },
     "Getting started guide" : {
 
     },
     "Gifted" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -32673,6 +32801,9 @@
         }
       }
     },
+    "Government and tax" : {
+
+    },
     "GPT-5.6 Sol" : {
       "localizations" : {
         "de" : {
@@ -32967,6 +33098,9 @@
           }
         }
       }
+    },
+    "Health" : {
+
     },
     "Hear when your first cards and daily recap are ready" : {
       "localizations" : {
@@ -33434,7 +33568,19 @@
         }
       }
     },
+    "Hide passwords, API keys, cards and bank details in your screenshots." : {
+
+    },
+    "Hide private browsing windows" : {
+
+    },
+    "Hide sites by category" : {
+
+    },
     "Hide this" : {
+
+    },
+    "Hiding passwords, API keys, cards and bank details in your screenshots." : {
 
     },
     "Higher resolution and more frequent captures use more disk." : {
@@ -33759,7 +33905,7 @@
         }
       }
     },
-    "Hover a short card — the card grows to reveal the full title. No text shifts; only new lines appear below." : {
+    "Hover a short card and it grows to reveal the full title. No text shifts; only new lines appear below." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -33788,19 +33934,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Наведите указатель на короткую карточку — она увеличится и покажет заголовок целиком. Текст не смещается, новые строки появляются только снизу."
+            "value" : "Наведите указатель на короткую карточку, она увеличится и покажет заголовок целиком. Текст не смещается, новые строки появляются только снизу."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "将鼠标悬停在短卡片上——卡片会展开并显示完整标题。现有文本不会移动，只会在下方显示新行。"
+            "value" : "将鼠标悬停在短卡片上, , 卡片会展开并显示完整标题。现有文本不会移动，只会在下方显示新行。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "將游標停在短卡片上——卡片會展開並顯示完整標題。現有文字不會移動，只會在下方顯示新行。"
+            "value" : "將游標停在短卡片上, , 卡片會展開並顯示完整標題。現有文字不會移動，只會在下方顯示新行。"
           }
         }
       }
@@ -34034,6 +34180,9 @@
           }
         }
       }
+    },
+    "How good were today’s tasks?" : {
+
     },
     "How it works" : {
       "localizations" : {
@@ -34777,7 +34926,7 @@
         }
       }
     },
-    "If you get stuck here, you can go back and choose the ‘Bring your own key’ option — it only takes a minute to set up." : {
+    "If you get stuck here, you can go back and choose the ‘Bring your own key’ option. It only takes a minute to set up." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -34806,19 +34955,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Если здесь возникнут трудности, вернитесь и выберите «Использовать свой ключ» — настройка займёт всего минуту."
+            "value" : "Если здесь возникнут трудности, вернитесь и выберите «Использовать свой ключ», настройка займёт всего минуту."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "如果在这里遇到问题，可以返回并选择“使用自己的密钥”选项——只需一分钟即可完成设置。"
+            "value" : "如果在这里遇到问题，可以返回并选择“使用自己的密钥”选项, , 只需一分钟即可完成设置。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "如果在這裡遇到問題，可以返回並選擇「使用自己的金鑰」選項——只要一分鐘即可完成設定。"
+            "value" : "如果在這裡遇到問題，可以返回並選擇「使用自己的金鑰」選項, , 只要一分鐘即可完成設定。"
           }
         }
       }
@@ -35013,6 +35162,9 @@
           }
         }
       }
+    },
+    "In your browser" : {
+
     },
     "inactive" : {
       "extractionState" : "stale",
@@ -36213,6 +36365,52 @@
         }
       }
     },
+    "Jerry, who makes Dayflow" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jerry, der Dayflow entwickelt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jerry, qui développe Dayflow"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dayflow を作っている Jerry より"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dayflow를 만드는 Jerry"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jerry, создатель Dayflow"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dayflow 的开发者 Jerry"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dayflow 的開發者 Jerry"
+          }
+        }
+      }
+    },
     "Join Discord" : {
       "localizations" : {
         "de" : {
@@ -36911,6 +37109,9 @@
         }
       }
     },
+    "Know which app you're in, so cards are labeled right and Dayflow can hide private browsing windows." : {
+
+    },
     "Know which app you're in, so cards are labeled right." : {
 
     },
@@ -37145,48 +37346,48 @@
         }
       }
     },
-    "Last refresh failed — try again" : {
+    "Last refresh failed. Try again" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Letzte Aktualisierung fehlgeschlagen — erneut versuchen"
+            "value" : "Letzte Aktualisierung fehlgeschlagen, erneut versuchen"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Échec de la dernière actualisation — réessayez"
+            "value" : "Échec de la dernière actualisation, réessayez"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "前回の更新に失敗しました — もう一度お試しください"
+            "value" : "前回の更新に失敗しました, もう一度お試しください"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "마지막 새로고침 실패 — 다시 시도하세요"
+            "value" : "마지막 새로고침 실패, 다시 시도하세요"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Последнее обновление не удалось — повторите попытку"
+            "value" : "Последнее обновление не удалось, повторите попытку"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "上次刷新失败 — 请重试"
+            "value" : "上次刷新失败, 请重试"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "上次重新整理失敗 — 請再試一次"
+            "value" : "上次重新整理失敗, 請再試一次"
           }
         }
       }
@@ -38693,6 +38894,9 @@
     "Mac recordings" : {
 
     },
+    "macOS access Dayflow needs. These stay off until you turn them on." : {
+
+    },
     "Mail" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -39061,6 +39265,9 @@
           }
         }
       }
+    },
+    "Matched against a list of domains bundled with Dayflow." : {
+
     },
     "MCP / CLI" : {
       "localizations" : {
@@ -40450,6 +40657,9 @@
         }
       }
     },
+    "Needed to tell a private window apart from an ordinary one." : {
+
+    },
     "NEEDS ATTENTION" : {
       "localizations" : {
         "de" : {
@@ -40587,6 +40797,9 @@
           }
         }
       }
+    },
+    "NEW" : {
+
     },
     "New and reprocessed timeline cards will pre-generate timelapse videos and store them on disk instead of building them on demand. Uses more storage and background processing." : {
       "localizations" : {
@@ -41049,6 +41262,9 @@
           }
         }
       }
+    },
+    "Next renewal" : {
+
     },
     "Next steps" : {
       "localizations" : {
@@ -42391,6 +42607,9 @@
       }
     },
     "No summary for %@ yet" : {
+
+    },
+    "No thanks" : {
 
     },
     "No timeline activities were recorded for %@." : {
@@ -45081,6 +45300,9 @@
         }
       }
     },
+    "Or sign in from Terminal" : {
+
+    },
     "Other" : {
       "localizations" : {
         "de" : {
@@ -45218,6 +45440,9 @@
           }
         }
       }
+    },
+    "Our privacy model runs entirely on your machine, so these details stay only with you, including:" : {
+
     },
     "Output language override" : {
       "localizations" : {
@@ -45498,6 +45723,12 @@
         }
       }
     },
+    "Password" : {
+
+    },
+    "Passwords" : {
+
+    },
     "Past referrals (%lld)" : {
       "localizations" : {
         "de" : {
@@ -45684,6 +45915,9 @@
           }
         }
       }
+    },
+    "Patient portals, pharmacies and medical records." : {
+
     },
     "Pause" : {
       "localizations" : {
@@ -46027,6 +46261,7 @@
       }
     },
     "Pick a plan, then finish securely in Stripe Checkout." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -46071,6 +46306,9 @@
           }
         }
       }
+    },
+    "Pick a plan, then finish securely in Stripe Checkout. Cancel any time, no questions asked." : {
+
     },
     "Pick ChatGPT or Claude first." : {
       "localizations" : {
@@ -46210,7 +46448,7 @@
         }
       }
     },
-    "Pick what you want to get done and start a session. Flow watches your screen while it runs and nudges you back when you wander off. It's new, so tell us what feels off." : {
+    "Pick what you want to get done and start a session. Flow watches your screen while it runs and nudges you back when you wander off." : {
 
     },
     "Pick your Daily provider" : {
@@ -46258,9 +46496,6 @@
           }
         }
       }
-    },
-    "Plan for your day and see new updates all in one place." : {
-
     },
     "Plan your day, then stay on it" : {
 
@@ -46678,6 +46913,9 @@
           }
         }
       }
+    },
+    "Plus" : {
+
     },
     "PM" : {
       "extractionState" : "stale",
@@ -47240,6 +47478,7 @@
       }
     },
     "Privacy policy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -47284,6 +47523,18 @@
           }
         }
       }
+    },
+    "Privacy shield" : {
+
+    },
+    "Privacy Shield couldn't check this screenshot, so it was saved without its contents." : {
+
+    },
+    "Privacy Shield couldn't get its model. Turn it off and on again to retry." : {
+
+    },
+    "Privacy shield for extra security" : {
+
     },
     "Private & offline • 16GB+ RAM • less intelligent" : {
       "localizations" : {
@@ -47988,9 +48239,6 @@
         }
       }
     },
-    "Put every task back in the stack as new" : {
-
-    },
     "Quick question" : {
       "localizations" : {
         "de" : {
@@ -48603,6 +48851,9 @@
           }
         }
       }
+    },
+    "Read it" : {
+
     },
     "Ready for review" : {
       "localizations" : {
@@ -49264,6 +49515,9 @@
         }
       }
     },
+    "Recordings stay on this Mac" : {
+
+    },
     "Reddit" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -49685,194 +49939,6 @@
         }
       }
     },
-    "Refining UI mockups — iteration 1 of the hover card" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI-Entwürfe verfeinern — 1. Version der Hover-Karte"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Affinage des maquettes d’interface — 1re itération de la carte au survol"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI モックアップを調整 — ホバーカードの第1版"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI 목업 다듬기 — 호버 카드 1차 수정"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Доработка макетов интерфейса — итерация 1 карточки при наведении"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "优化 UI 模型 — 悬浮卡片第 1 版"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "最佳化 UI 模型 — 懸浮卡片第 1 版"
-          }
-        }
-      }
-    },
-    "Refining UI mockups — iteration 2" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI-Entwürfe verfeinern — 2. Version"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Affinage des maquettes d’interface — 2e itération"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI モックアップを調整 — 第2版"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI 목업 다듬기 — 2차 수정"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Доработка макетов интерфейса — итерация 2"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "优化 UI 模型 — 第 2 版"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "最佳化 UI 模型 — 第 2 版"
-          }
-        }
-      }
-    },
-    "Refining UI mockups — quick pass" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI-Entwürfe verfeinern — schnelle Überarbeitung"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Affinage des maquettes d’interface — révision rapide"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI モックアップを調整 — 簡易修正"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI 목업 다듬기 — 빠른 수정"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Доработка макетов интерфейса — быстрый проход"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "优化 UI 模型 — 快速调整"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "最佳化 UI 模型 — 快速調整"
-          }
-        }
-      }
-    },
-    "Refining UI mockups — small tweaks" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI-Entwürfe verfeinern — kleine Anpassungen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Affinage des maquettes d’interface — petits ajustements"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI モックアップを調整 — 微調整"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "UI 목업 다듬기 — 소폭 수정"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Доработка макетов интерфейса — небольшие правки"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "优化 UI 模型 — 小幅调整"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "最佳化 UI 模型 — 小幅調整"
-          }
-        }
-      }
-    },
     "Refining UI mockups for the weekly view" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -49916,6 +49982,194 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "最佳化每週檢視的 UI 模型"
+          }
+        }
+      }
+    },
+    "Refining UI mockups: iteration 1 of the hover card" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI-Entwürfe verfeinern, 1. Version der Hover-Karte"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Affinage des maquettes d’interface, 1re itération de la carte au survol"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI モックアップを調整, ホバーカードの第1版"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI 목업 다듬기, 호버 카드 1차 수정"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Доработка макетов интерфейса, итерация 1 карточки при наведении"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "优化 UI 模型, 悬浮卡片第 1 版"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "最佳化 UI 模型, 懸浮卡片第 1 版"
+          }
+        }
+      }
+    },
+    "Refining UI mockups: iteration 2" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI-Entwürfe verfeinern, 2. Version"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Affinage des maquettes d’interface, 2e itération"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI モックアップを調整, 第2版"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI 목업 다듬기, 2차 수정"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Доработка макетов интерфейса, итерация 2"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "优化 UI 模型, 第 2 版"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "最佳化 UI 模型, 第 2 版"
+          }
+        }
+      }
+    },
+    "Refining UI mockups: quick pass" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI-Entwürfe verfeinern, schnelle Überarbeitung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Affinage des maquettes d’interface, révision rapide"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI モックアップを調整, 簡易修正"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI 목업 다듬기, 빠른 수정"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Доработка макетов интерфейса, быстрый проход"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "优化 UI 模型, 快速调整"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "最佳化 UI 模型, 快速調整"
+          }
+        }
+      }
+    },
+    "Refining UI mockups: small tweaks" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI-Entwürfe verfeinern, kleine Anpassungen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Affinage des maquettes d’interface, petits ajustements"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI モックアップを調整, 微調整"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UI 목업 다듬기, 소폭 수정"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Доработка макетов интерфейса, небольшие правки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "优化 UI 模型, 小幅调整"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "最佳化 UI 模型, 小幅調整"
           }
         }
       }
@@ -50390,6 +50644,7 @@
 
     },
     "Renews" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -51088,9 +51343,6 @@
           }
         }
       }
-    },
-    "Reset tasks" : {
-
     },
     "Reset to Dayflow defaults" : {
       "localizations" : {
@@ -51981,54 +52233,54 @@
         }
       }
     },
-    "Running for %lldm %llds — a full day can take several minutes." : {
+    "Running for %lldm %llds. A full day can take several minutes." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Läuft seit %1$lld Min. %2$lld Sek. — ein ganzer Tag kann mehrere Minuten dauern."
+            "value" : "Läuft seit %1$lld Min. %2$lld Sek., ein ganzer Tag kann mehrere Minuten dauern."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Running for %1$lldm %2$llds — a full day can take several minutes."
+            "value" : "Running for %1$lldm %2$llds, a full day can take several minutes."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "En cours depuis %1$lld min %2$lld s — une journée complète peut prendre plusieurs minutes."
+            "value" : "En cours depuis %1$lld min %2$lld s, une journée complète peut prendre plusieurs minutes."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$lld分%2$lld秒実行中 — 1日分の処理には数分かかることがあります。"
+            "value" : "%1$lld分%2$lld秒実行中, 1日分の処理には数分かかることがあります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$lld분 %2$lld초 동안 실행 중 — 하루 전체를 처리하는 데 몇 분 정도 걸릴 수 있습니다."
+            "value" : "%1$lld분 %2$lld초 동안 실행 중, 하루 전체를 처리하는 데 몇 분 정도 걸릴 수 있습니다."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Выполняется %1$lld мин %2$lld с — обработка полного дня может занять несколько минут."
+            "value" : "Выполняется %1$lld мин %2$lld с, обработка полного дня может занять несколько минут."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "已运行 %1$lld 分 %2$lld 秒 — 处理全天内容可能需要几分钟。"
+            "value" : "已运行 %1$lld 分 %2$lld 秒, 处理全天内容可能需要几分钟。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "已執行 %1$lld 分 %2$lld 秒 — 處理一整天的內容可能需要幾分鐘。"
+            "value" : "已執行 %1$lld 分 %2$lld 秒, 處理一整天的內容可能需要幾分鐘。"
           }
         }
       }
@@ -52079,18 +52331,18 @@
         }
       }
     },
-    "Runs only when you ask — nothing happens automatically." : {
+    "Runs only when you ask. Nothing happens automatically." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wird nur auf Anfrage ausgeführt — nichts geschieht automatisch."
+            "value" : "Wird nur auf Anfrage ausgeführt, nichts geschieht automatisch."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "S’exécute uniquement à votre demande — rien ne se fait automatiquement."
+            "value" : "S’exécute uniquement à votre demande, rien ne se fait automatiquement."
           }
         },
         "ja" : {
@@ -52108,19 +52360,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Запускается только по вашему запросу — ничего не происходит автоматически."
+            "value" : "Запускается только по вашему запросу, ничего не происходит автоматически."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "仅在你请求时运行 — 不会自动执行任何操作。"
+            "value" : "仅在你请求时运行, 不会自动执行任何操作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "僅在你要求時執行 — 不會自動進行任何操作。"
+            "value" : "僅在你要求時執行, 不會自動進行任何操作。"
           }
         }
       }
@@ -52643,6 +52895,9 @@
         }
       }
     },
+    "Screen Recording usually needs Dayflow to restart before macOS applies it. Accessibility takes effect right away." : {
+
+    },
     "Search installed apps" : {
       "localizations" : {
         "de" : {
@@ -52875,12 +53130,6 @@
           }
         }
       }
-    },
-    "See my rundown" : {
-
-    },
-    "See what’s in stock today" : {
-
     },
     "See when your agents are running and when they need your input." : {
       "localizations" : {
@@ -53711,9 +53960,6 @@
           }
         }
       }
-    },
-    "Session summaries and island progress" : {
-
     },
     "Set goals" : {
       "localizations" : {
@@ -54931,6 +55177,7 @@
       }
     },
     "Sign in once to keep Dayflow Pro and cloud features attached to this Mac." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -54975,6 +55222,9 @@
           }
         }
       }
+    },
+    "Sign in to %@" : {
+
     },
     "Sign in to claim this referral code." : {
       "localizations" : {
@@ -55118,6 +55368,7 @@
       }
     },
     "Sign in to upgrade" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -55397,6 +55648,7 @@
       }
     },
     "Signed in" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -55443,6 +55695,7 @@
       }
     },
     "Signed in as" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -55903,7 +56156,7 @@
         }
       }
     },
-    "Slow down a little — try again in a minute." : {
+    "Slow down a little and try again in a minute." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -55949,7 +56202,7 @@
         }
       }
     },
-    "Snooze is up — ready to get back to it?" : {
+    "Snooze is up. Ready to get back to it?" : {
       "comment" : "Speech bubble from the Flow mascot overlay after a snoozed nudge expires.",
       "localizations" : {
         "de" : {
@@ -55979,7 +56232,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Отсрочка закончилась — готовы вернуться к работе?"
+            "value" : "Отсрочка закончилась, готовы вернуться к работе?"
           }
         },
         "zh-Hans" : {
@@ -57292,6 +57545,9 @@
         }
       }
     },
+    "Starts right away" : {
+
+    },
     "Stats" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -57802,6 +58058,15 @@
     "SUBMITTED" : {
 
     },
+    "Subscribe to access premium features" : {
+
+    },
+    "Subscribe to Plus" : {
+
+    },
+    "Subscribe to Pro" : {
+
+    },
     "Subscription requirements" : {
       "localizations" : {
         "de" : {
@@ -58264,6 +58529,12 @@
         }
       }
     },
+    "Switch to Plus" : {
+
+    },
+    "Switch to Pro" : {
+
+    },
     "Switching to %@ will clear this chat's context." : {
       "localizations" : {
         "de" : {
@@ -58643,6 +58914,9 @@
           }
         }
       }
+    },
+    "Tax filing, benefits and government services." : {
+
     },
     "Tell Dayflow what you're hoping to get out of it." : {
       "localizations" : {
@@ -59660,6 +59934,9 @@
         }
       }
     },
+    "Thanks for rating today’s tasks" : {
+
+    },
     "Thanks for the report" : {
       "localizations" : {
         "de" : {
@@ -59751,6 +60028,9 @@
           }
         }
       }
+    },
+    "Thanks, we read every note." : {
+
     },
     "That code is wrong or has expired. Check it, or send a new one." : {
 
@@ -60544,7 +60824,13 @@
         }
       }
     },
+    "The sign-in didn't finish. Try again, or sign in from Terminal instead." : {
+
+    },
     "The three timed options shown when you pause Dayflow." : {
+
+    },
+    "These need Accessibility, which lets Dayflow read the front window's title and address. Turn it on and the controls below go live right away, with no restart." : {
 
     },
     "They sign up and get a " : {
@@ -60829,6 +61115,9 @@
         }
       }
     },
+    "This is a custom trained machine learning model that hides sensitive information in your screen data before it is shared with your selected LLM." : {
+
+    },
     "This model enables Dayflow to understand what's on your screen" : {
       "localizations" : {
         "de" : {
@@ -60920,6 +61209,18 @@
           }
         }
       }
+    },
+    "This screen" : {
+
+    },
+    "This screenshot was saved without the app's contents because you blocked it from recording." : {
+
+    },
+    "This site is in the %@ category." : {
+
+    },
+    "This site is on your hidden list." : {
+
     },
     "This step is optional. You can change the colors anytime while using Dayflow." : {
       "localizations" : {
@@ -61014,6 +61315,9 @@
       }
     },
     "This time couldn't be turned into cards yet. Dayflow will try again automatically. Your recording is saved." : {
+
+    },
+    "This was a private browsing window." : {
 
     },
     "THIS WEEK" : {
@@ -61898,6 +62202,9 @@
           }
         }
       }
+    },
+    "Timeline, Daily and Weekly with your own AI provider" : {
+
     },
     "Tiny Tail" : {
       "extractionState" : "stale",
@@ -63750,6 +64057,9 @@
         }
       }
     },
+    "Turn it on to hide passwords, API keys, and card and bank details in your screenshots." : {
+
+    },
     "Turn on" : {
       "localizations" : {
         "de" : {
@@ -64355,6 +64665,9 @@
           }
         }
       }
+    },
+    "Unlimited access to all features" : {
+
     },
     "Unlock" : {
       "extractionState" : "stale",
@@ -65097,6 +65410,12 @@
         }
       }
     },
+    "Upgrade or sign in to access premium features" : {
+
+    },
+    "Upgrade subscription" : {
+
+    },
     "Upgrade to %@" : {
       "localizations" : {
         "de" : {
@@ -65144,6 +65463,7 @@
       }
     },
     "Upgrade to Dayflow Pro" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -65188,6 +65508,9 @@
           }
         }
       }
+    },
+    "Upgrade to Dayflow Pro or Plus" : {
+
     },
     "Upgrade to Qwen3VL for a big improvement in quality." : {
       "localizations" : {
@@ -65280,6 +65603,15 @@
           }
         }
       }
+    },
+    "Usage based on your own LLM account limits" : {
+
+    },
+    "Use %@ as a backup?" : {
+
+    },
+    "Use %@ as backup" : {
+
     },
     "Use any OpenAI-compatible VLM" : {
       "localizations" : {
@@ -66532,6 +66864,9 @@
         }
       }
     },
+    "Waiting for sign-in…" : {
+
+    },
     "Watch the screen during sessions" : {
       "localizations" : {
         "de" : {
@@ -66578,6 +66913,12 @@
         }
       }
     },
+    "We are committed to protecting your privacy. Learn more through our " : {
+
+    },
+    "We are committed to protecting your privacy. View our privacy policy " : {
+
+    },
     "We couldn’t start Agents" : {
       "localizations" : {
         "de" : {
@@ -66623,6 +66964,9 @@
           }
         }
       }
+    },
+    "We custom trained a machine learning model that runs ultra efficiently on your Mac and hides passwords, API keys and card and bank details in your screenshots before anything is sent to your AI. Available on Pro and Plus: turn it on from the Privacy shield switch under your timeline." : {
+
     },
     "We want you to be able to try Dayflow for free, no credit card and no strings attached!" : {
       "localizations" : {
@@ -66809,7 +67153,7 @@
         }
       }
     },
-    "We're ramping up letting people off the Flow waitlist. If you've joined, look forward to hearing from us soon!" : {
+    "We're testing a new morning brief: each day it picks the few things that will move your goals forward the most and can hand them to your AI agents to get started. Want early access? Message us from the Support tab." : {
 
     },
     "Wed" : {
@@ -67740,10 +68084,13 @@
         }
       }
     },
+    "What would have made them better?" : {
+
+    },
     "What you saved" : {
 
     },
-    "What's going on? Bugs, ideas, confusion — all welcome." : {
+    "What's going on? Bugs, ideas and confusion are all welcome." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -67754,7 +68101,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Que se passe-t-il ? Bugs, idées, incompréhensions — tout est bienvenu."
+            "value" : "Que se passe-t-il ? Bugs, idées, incompréhensions, tout est bienvenu."
           }
         },
         "ja" : {
@@ -67772,19 +68119,19 @@
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Что случилось? Ошибки, идеи, непонятные моменты — приветствуется всё."
+            "value" : "Что случилось? Ошибки, идеи, непонятные моменты, приветствуется всё."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "遇到了什么？错误、想法、疑问——都欢迎反馈。"
+            "value" : "遇到了什么？错误、想法、疑问, , 都欢迎反馈。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "遇到了什麼？錯誤、想法、疑問——都歡迎回饋。"
+            "value" : "遇到了什麼？錯誤、想法、疑問, , 都歡迎回饋。"
           }
         }
       }
@@ -69455,6 +69802,7 @@
       }
     },
     "You have complimentary Dayflow Pro access. There is no billing to manage for this account." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -70105,6 +70453,9 @@
         }
       }
     },
+    "Your browser just opened. Sign in to %@ there and come back. Dayflow will pick up where it left off." : {
+
+    },
     "Your daily recap for yesterday is ready" : {
       "localizations" : {
         "de" : {
@@ -70659,9 +71010,6 @@
         }
       }
     },
-    "Your free trial of Flow is running on this Mac." : {
-
-    },
     "Your interruptions are driven by context shifts and distractions." : {
       "localizations" : {
         "de" : {
@@ -70846,7 +71194,11 @@
         }
       }
     },
+    "Your own domains, hidden whenever any category above is on." : {
+
+    },
     "Your Pro access is active on this Mac and attached to your Dayflow account." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

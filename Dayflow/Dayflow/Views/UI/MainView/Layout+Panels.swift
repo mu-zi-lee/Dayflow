@@ -255,7 +255,12 @@ extension MainView {
     let reviewPromptCount = cardsToReviewPromptCount
 
     return ZStack(alignment: .bottom) {
-      HStack(alignment: .bottom) {
+      // Figma (Dayflow - minor adjustments, 2:1141): Copy timeline and the hours on the left,
+      // the Privacy shield toggle on the right.
+      HStack(alignment: .center, spacing: 10) {
+        copyTimelineButton
+          .opacity(contentOpacity)
+
         TimelineFooterFade(state: timelineFooterState) {
           weeklyHoursText
         }
@@ -263,10 +268,12 @@ extension MainView {
 
         Spacer()
 
-        copyTimelineButton
+        PrivacyShieldFooterItem()
           .opacity(contentOpacity)
       }
-      .padding(.horizontal, 24)
+      .padding(.leading, 24)
+      // Lines the toggle's right edge up with the timeline cards: 5pt column padding plus the cards' 5pt inset.
+      .padding(.trailing, 10)
 
       if timelineMode == .day, reviewPromptCount > 0 {
         CardsToReviewButton(count: reviewPromptCount) {

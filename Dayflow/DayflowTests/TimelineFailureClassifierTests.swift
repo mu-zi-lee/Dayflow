@@ -42,4 +42,36 @@ final class TimelineFailureClassifierTests: XCTestCase {
     XCTAssertTrue(description.contains("primary failed"))
     XCTAssertTrue(description.contains("backup failed"))
   }
+
+  func testFallbackClassificationUsesLocalizedPrimaryErrorCode() {
+    let primaryError = NSError(
+      domain: NSURLErrorDomain,
+      code: NSURLErrorTimedOut,
+      userInfo: [NSLocalizedDescriptionKey: "请求超时"]
+    )
+    let backupError = NSError(
+      domain: "OpenAICompatibleProvider", code: 401,
+      userInfo: [NSLocalizedDescriptionKey: "invalid API key"]
+    )
+
+    let classification = TimelineFailureClassifier.classify(
+      LLMProviderFallbackError(primaryError: primaryError, backupError: backupError)
+    )
+
+    XCTAssertEqual(classification.kind, .transient)
+  }
+
+  func testFallbackClassificationPreservesPrimaryHTTPStatus() {
+    let primaryError = NSError(
+      domain: "OpenAICompatibleProvider", code: 401,
+      userInfo: [NSLocalizedDescriptionKey: "访问凭证无效"]
+    )
+    let backupError = URLError(.timedOut)
+
+    let classification = TimelineFailureClassifier.classify(
+      LLMProviderFallbackError(primaryError: primaryError, backupError: backupError)
+    )
+
+    XCTAssertEqual(classification.kind, .apiKeyProblem)
+  }
 }

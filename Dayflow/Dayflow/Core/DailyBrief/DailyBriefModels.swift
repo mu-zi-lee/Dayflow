@@ -76,6 +76,12 @@ struct DailyBriefDocketItem: Codable, Hashable, Sendable {
   var feedbackUrl: String?
   /// Titles of the `links` worth handing to the agent along with the prompt.
   var attach: [String]?
+  /// An earlier Codex thread or Claude Code session (by id) the task continues. The hand-off
+  /// opens it, in its own app; without one it opens a new thread.
+  var thread: String?
+  /// For a new thread, the app the brief judged best for it: "claude" or "codex". Nil leaves
+  /// it to the agent picked in the gear menu.
+  var newThreadApp: String?
 }
 
 struct DailyBriefTrackingItem: Codable, Hashable, Sendable {
@@ -112,8 +118,19 @@ struct DailyBriefReadingItem: Codable, Hashable, Sendable {
   var title: String
   var source: String?
   var url: String
+  /// One sentence on why it's for this person in particular.
   var reason: String?
+  /// A picture the model saw on the page. The app prefers the one it finds itself (`imageFile`).
   var imageUrl: String?
+  /// The most interesting specific thing the piece says, shown in bold. Older briefs don't have it.
+  var hook: String?
+  /// Roughly how long it takes to read or watch.
+  var minutes: Int?
+  /// Set by the app, not the model: the page's own picture, saved in the brief folder.
+  /// A path relative to DailyBriefStore.briefDirectory(for:).
+  var imageFile: String?
+  /// Set by the app: the saved picture is a headline set on a background, not a photo.
+  var imageIsTitleCard: Bool?
 }
 
 struct DailyBriefNewsItem: Codable, Hashable, Sendable {
@@ -122,6 +139,11 @@ struct DailyBriefNewsItem: Codable, Hashable, Sendable {
   var url: String
   /// yyyy-MM-dd
   var published: String?
+  /// Set by the app, not the model: the article's own picture, saved in the brief folder.
+  /// A path relative to DailyBriefStore.briefDirectory(for:).
+  var imageFile: String?
+  /// Set by the app: the saved picture is a headline set on a background, not a photo.
+  var imageIsTitleCard: Bool?
 }
 
 struct DailyBriefSiteSeeingItem: Codable, Hashable, Sendable {
@@ -186,7 +208,8 @@ struct DailyBriefContent: Codable, Equatable, Sendable {
   }
 
   func hasItems(_ kind: DailyBriefSectionKind) -> Bool {
-    itemCount(kind) > 0
+    // Recent site-seeing is switched off for now, so briefs that already have it don't show it.
+    kind != .siteSeeing && itemCount(kind) > 0
   }
 }
 
@@ -236,6 +259,10 @@ struct DailyBriefUserState: Codable, Equatable, Sendable {
   var folders: [String: String] = [:]
   /// Every hand-off and dismissal, oldest first. The last entry for a title wins.
   var handoffs: [DailyBriefHandoff] = []
+  /// 1 to 5 stars from the card after the last task: how good today's tasks were.
+  var docketRating: Int?
+  /// What they wrote in the box under the rating, if they sent anything.
+  var docketFeedback: String?
 
   init() {}
 
@@ -255,6 +282,8 @@ struct DailyBriefUserState: Codable, Equatable, Sendable {
     folders = try container.decodeIfPresent([String: String].self, forKey: .folders) ?? [:]
     handoffs =
       try container.decodeIfPresent([DailyBriefHandoff].self, forKey: .handoffs) ?? []
+    docketRating = try container.decodeIfPresent(Int.self, forKey: .docketRating)
+    docketFeedback = try container.decodeIfPresent(String.self, forKey: .docketFeedback)
   }
 }
 
@@ -264,13 +293,24 @@ struct DailyBriefRunStats: Codable, Equatable, Sendable {
   /// Wall-clock seconds from start to finish, measured by the app.
   var durationSeconds: Double = 0
   var model: String?
+  /// The CLI's own estimate at list prices, not a charge.
   var costUSD: Double?
+  /// Full model id → that model's share of `costUSD`.
+  var modelCosts: [String: Double]?
+  /// Seconds spent waiting on API calls. Unlike `durationSeconds`, time the Mac
+  /// spent asleep mid-run doesn't count. With two runs side by side, the longer one.
+  var apiSeconds: Double?
   var inputTokens: Int?
   var outputTokens: Int?
   var cacheReadTokens: Int?
+  /// Tokens written to the prompt cache, which cost more than plain input.
+  var cacheWriteTokens: Int?
   var numTurns: Int?
   /// Tool name → number of calls, e.g. ["WebSearch": 6, "mcp__slack__search": 3].
   var toolCalls: [String: Int]?
+  /// MCP server name → whether it connected, e.g. ["dayflow": "connected",
+  /// "slack": "failed"]. These are the connectors the run could read from.
+  var connectors: [String: String]?
   var cardCount: Int?
   var candidateImageCount: Int?
   var promptCharacters: Int?
@@ -301,8 +341,12 @@ struct DailyBriefRunStats: Codable, Equatable, Sendable {
     inputTokens = try c.decodeIfPresent(Int.self, forKey: .inputTokens)
     outputTokens = try c.decodeIfPresent(Int.self, forKey: .outputTokens)
     cacheReadTokens = try c.decodeIfPresent(Int.self, forKey: .cacheReadTokens)
+    cacheWriteTokens = try c.decodeIfPresent(Int.self, forKey: .cacheWriteTokens)
+    modelCosts = try c.decodeIfPresent([String: Double].self, forKey: .modelCosts)
+    apiSeconds = try c.decodeIfPresent(Double.self, forKey: .apiSeconds)
     numTurns = try c.decodeIfPresent(Int.self, forKey: .numTurns)
     toolCalls = try c.decodeIfPresent([String: Int].self, forKey: .toolCalls)
+    connectors = try c.decodeIfPresent([String: String].self, forKey: .connectors)
     cardCount = try c.decodeIfPresent(Int.self, forKey: .cardCount)
     candidateImageCount = try c.decodeIfPresent(Int.self, forKey: .candidateImageCount)
     promptCharacters = try c.decodeIfPresent(Int.self, forKey: .promptCharacters)

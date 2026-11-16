@@ -3,13 +3,20 @@
 //  Dayflow
 //
 //  Shown in place of the stack once every task is dismissed or handed off: a peach to
-//  lavender card with a tilted sky-blue tile that reads "N Tasks Reviewed".
+//  lavender card with a tilted sky-blue tile that reads "N Tasks Reviewed", a
+//  1 to 5 star rating of how good the day's tasks were, and, once rated, a box for
+//  written feedback.
 //
 
 import SwiftUI
 
 struct DocketSummaryCard: View {
+  /// Tall enough for the feedback box that appears under the stars after a rating.
+  static let height: CGFloat = 525
+
   let count: Int
+
+  @ObservedObject private var store = DailyBriefStore.shared
 
   @State private var appearedAt: Date?
   @State private var isFloating = false
@@ -25,19 +32,23 @@ struct DocketSummaryCard: View {
       let t = isEntranceDone ? 10 : appearedAt.map { context.date.timeIntervalSince($0) } ?? 0
       content(t: t)
     }
-    .frame(width: 676, height: 400)
+    .frame(width: 676, height: Self.height)
     .background(
       EllipticalGradient(
         colors: [Color(hex: "FFE6D6"), Color(hex: "E8EEFF")],
         center: UnitPoint(x: 0.49, y: 1.02), startRadiusFraction: 0, endRadiusFraction: 1.02)
     )
     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.white, lineWidth: 1))
+    .overlay(
+      RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.white, lineWidth: 1)
+    )
     .shadow(color: Color.black.opacity(0.06), radius: 5, y: 2)
     .onAppear {
       appearedAt = Date()
       DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { isFloating = true }
+        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+          isFloating = true
+        }
       }
     }
     .task {
@@ -71,14 +82,33 @@ struct DocketSummaryCard: View {
 
       tile(t: t)
         .offset(x: 242, y: 135.68)
+
+      VStack(spacing: 14) {
+        DocketStarRating(rating: store.brief?.userState.docketRating) { stars in
+          store.rateDocket(stars)
+        }
+        // Once they've rated, a box for saying why in their own words.
+        if store.brief?.userState.docketRating != nil {
+          DocketFeedbackBox(sent: store.brief?.userState.docketFeedback) { text in
+            store.sendDocketFeedback(text)
+          }
+          .transition(.opacity.combined(with: .offset(y: -6)))
+        }
+      }
+      .animation(.easeOut(duration: 0.25), value: store.brief?.userState.docketRating != nil)
+      .frame(width: 676)
+      .offset(y: 380)
+      .modifier(DocketRise(t: t, start: 1.4, duration: 0.6, distance: 8))
+      .allowsHitTesting(t >= 1.4)
     }
-    .frame(width: 676, height: 400, alignment: .topLeading)
+    .frame(width: 676, height: Self.height, alignment: .topLeading)
   }
 
   private func halo(t: Double) -> some View {
     let p = DocketMotion.progress(
       t, start: 0.1, duration: 1.4,
-      curve: .bezier(startControlPoint: UnitPoint(x: 0.22, y: 0.61), endControlPoint: UnitPoint(x: 0.36, y: 1)))
+      curve: .bezier(
+        startControlPoint: UnitPoint(x: 0.22, y: 0.61), endControlPoint: UnitPoint(x: 0.36, y: 1)))
     return EllipticalGradient(
       stops: [
         .init(color: .white.opacity(0.93), location: 0),
@@ -87,7 +117,8 @@ struct DocketSummaryCard: View {
         .init(color: .white.opacity(0.46), location: 0.64),
         .init(color: .white.opacity(0.12), location: 0.82),
         .init(color: .white.opacity(0), location: 1),
-      ], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5)
+      ], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5
+    )
     .opacity(p)
     .scaleEffect(DocketMotion.mix(0.7, 1, p))
   }
@@ -130,12 +161,16 @@ struct DocketSummaryCard: View {
   }
 
   /// The tile's hand-keyed entrance: drops in, overshoots its tilt, settles at 3°.
-  private func tileEntrance(t: Double) -> (opacity: Double, scale: Double, rotation: Double, y: Double) {
+  private func tileEntrance(t: Double) -> (
+    opacity: Double, scale: Double, rotation: Double, y: Double
+  ) {
     let local = (t - 0.5) / 0.9
     if local <= 0 { return (0, 0.94, 1, -30) }
     if local < 0.55 {
       let p = Self.tileCurve.value(at: local / 0.55)
-      return (p, DocketMotion.mix(0.94, 1, p), DocketMotion.mix(1, 3.6, p), DocketMotion.mix(-30, 4, p))
+      return (
+        p, DocketMotion.mix(0.94, 1, p), DocketMotion.mix(1, 3.6, p), DocketMotion.mix(-30, 4, p)
+      )
     }
     if local < 0.8 {
       let p = UnitCurve.easeInOut.value(at: (local - 0.55) / 0.25)
@@ -148,7 +183,8 @@ struct DocketSummaryCard: View {
   private func dome(t: Double) -> some View {
     let p = DocketMotion.progress(
       t, start: 0.65, duration: 1.1,
-      curve: .bezier(startControlPoint: UnitPoint(x: 0.25, y: 0.7), endControlPoint: UnitPoint(x: 0.2, y: 1)))
+      curve: .bezier(
+        startControlPoint: UnitPoint(x: 0.25, y: 0.7), endControlPoint: UnitPoint(x: 0.2, y: 1)))
     return Ellipse()
       .fill(
         EllipticalGradient(
@@ -188,6 +224,118 @@ struct DocketSummaryCard: View {
     }
     .foregroundStyle(.white)
     .frame(width: 190)
+  }
+}
+
+/// "How good were today's tasks?" over five stars. Hovering previews a rating;
+/// clicking saves it, and it can be changed by clicking again.
+private struct DocketStarRating: View {
+  let rating: Int?
+  let onRate: (Int) -> Void
+
+  @State private var hovered: Int?
+
+  private var shown: Int { hovered ?? rating ?? 0 }
+
+  var body: some View {
+    VStack(spacing: 8) {
+      Text(rating == nil ? "How good were today’s tasks?" : "Thanks for rating today’s tasks")
+        .font(DailyBriefFonts.sans(13, weight: .medium))
+        .foregroundStyle(DocketColors.countHover)
+
+      HStack(spacing: 0) {
+        ForEach(1...5, id: \.self) { star in
+          Button {
+            onRate(star)
+          } label: {
+            Image(systemName: star <= shown ? "star.fill" : "star")
+              .font(.system(size: 22, weight: .medium))
+              .foregroundStyle(star <= shown ? Color(hex: "FF9F6F") : DocketColors.count)
+              .frame(width: 36, height: 32)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(DayflowPressScaleButtonStyle())
+          .onHover { isHovering in
+            if isHovering {
+              hovered = star
+            } else if hovered == star {
+              hovered = nil
+            }
+          }
+          .accessibilityLabel(star == 1 ? "1 star" : "\(star) stars")
+        }
+      }
+      .pointingHandCursor()
+      .animation(.easeOut(duration: 0.12), value: shown)
+    }
+  }
+}
+
+/// A one-line box under the stars for saying, in their own words, what would have made
+/// the tasks better. Return or Send submits it; after that it shows a thank-you.
+private struct DocketFeedbackBox: View {
+  /// What they already sent today, if anything.
+  let sent: String?
+  let onSend: (String) -> Void
+
+  @State private var draft = ""
+  @State private var isSendHovered = false
+  @FocusState private var isFocused: Bool
+
+  private var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+  var body: some View {
+    if sent != nil {
+      Text("Thanks, we read every note.")
+        .font(DailyBriefFonts.sans(13))
+        .foregroundStyle(DocketColors.countHover)
+        .frame(height: 36)
+    } else {
+      HStack(spacing: 8) {
+        TextField("What would have made them better?", text: $draft)
+          .textFieldStyle(.plain)
+          .font(DailyBriefFonts.sans(13))
+          .foregroundStyle(DocketColors.ink)
+          .focused($isFocused)
+          .onSubmit(send)
+          .padding(.horizontal, 12)
+          .frame(height: 36)
+          .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.75))
+          )
+          .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+              .strokeBorder(
+                isFocused ? Color(hex: "F4C8B1") : Color(hex: "F0E5E1"), lineWidth: 1)
+          )
+
+        Button(action: send) {
+          Text("Send")
+            .font(DailyBriefFonts.sans(13, weight: .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18)
+            .frame(height: 36)
+            .background(Capsule().fill(Color(hex: "FF9F6F")))
+            .overlay(Capsule().strokeBorder(Color(hex: "F4C8B1"), lineWidth: 0.5))
+            .scaleEffect(isSendHovered && !trimmed.isEmpty ? 1.02 : 1)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(trimmed.isEmpty)
+        .opacity(trimmed.isEmpty ? 0.5 : 1)
+        .onHover { isSendHovered = $0 }
+        .animation(.easeOut(duration: 0.15), value: isSendHovered)
+        .pointingHandCursor(enabled: !trimmed.isEmpty)
+      }
+      .frame(width: 420)
+    }
+  }
+
+  private func send() {
+    guard !trimmed.isEmpty else { return }
+    onSend(trimmed)
+    draft = ""
+    isFocused = false
   }
 }
 

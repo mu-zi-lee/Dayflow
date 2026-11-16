@@ -4,6 +4,42 @@
     <title>Dayflow Updates</title>
     <language>en</language>
     <item>
+      <title>Version 2.9.4</title>
+      <pubDate>Mon, 16 Nov 2026 10:43:51 +0000</pubDate>
+      <enclosure url="https://github.com/JerryZLiu/Dayflow/releases/download/v2.9.4/Dayflow.dmg"
+                 sparkle:version="145"
+                 sparkle:shortVersionString="2.9.4"
+                 length="109584332"
+                 type="application/octet-stream"
+                 sparkle:edSignature="1jvoOOtWExpBT/qzVLgDR7ZsWPe7I26kTknafxzZKS3BQl79tWaiaVp4kIrfZnTVVu7+lMvWbqBqhBfWUTaLDQ=="/>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <releaseNotesLink>https://github.com/JerryZLiu/Dayflow/releases/tag/v2.9.4</releaseNotesLink>
+    </item>
+    <item>
+      <title>Version 2.9.3</title>
+      <pubDate>Fri, 13 Nov 2026 11:45:18 +0000</pubDate>
+      <enclosure url="https://github.com/JerryZLiu/Dayflow/releases/download/v2.9.3/Dayflow.dmg"
+                 sparkle:version="144"
+                 sparkle:shortVersionString="2.9.3"
+                 length="109452727"
+                 type="application/octet-stream"
+                 sparkle:edSignature="Zh6rqNv5KyKfPjFWddVGrnEiW4y/m/GaAIm1OXXPZwJvDvsrGmLn7lMFAIl3KznZspqc90XhXV643BY0zzT0CQ=="/>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <releaseNotesLink>https://github.com/JerryZLiu/Dayflow/releases/tag/v2.9.3</releaseNotesLink>
+    </item>
+    <item>
+      <title>Version 2.9.0</title>
+      <pubDate>Tue, 10 Nov 2026 11:29:39 +0000</pubDate>
+      <enclosure url="https://github.com/JerryZLiu/Dayflow/releases/download/v2.9.0/Dayflow.dmg"
+                 sparkle:version="141"
+                 sparkle:shortVersionString="2.9.0"
+                 length="108676374"
+                 type="application/octet-stream"
+                 sparkle:edSignature="i0YppxSMOm1bneLBpnbkRvAzLuqB5jHOlNEA00gwj6zXX604/4499hbSfSRe1CJbf6akaYFiu5zJaNgw2nYiDw=="/>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <releaseNotesLink>https://github.com/JerryZLiu/Dayflow/releases/tag/v2.9.0</releaseNotesLink>
+    </item>
+    <item>
       <title>Version 2.8.0</title>
       <pubDate>Tue, 03 Nov 2026 10:40:34 +0000</pubDate>
       <enclosure url="https://github.com/JerryZLiu/Dayflow/releases/download/v2.8.0/Dayflow.dmg"

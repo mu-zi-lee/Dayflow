@@ -11,6 +11,7 @@ import SwiftUI
 struct SettingsView: View {
   private enum SettingsTab: String, CaseIterable, Identifiable {
     case account
+    case permissions
     case storage
     case privacy
     case providers
@@ -23,6 +24,7 @@ struct SettingsView: View {
     var title: String {
       switch self {
       case .account: return String(localized: "Account")
+      case .permissions: return String(localized: "Permissions")
       case .storage: return String(localized: "Storage")
       case .privacy: return String(localized: "Privacy")
       case .providers: return String(localized: "Providers")
@@ -147,27 +149,32 @@ struct SettingsView: View {
 
   @ViewBuilder
   private var settingsContent: some View {
-    if selectedTab == .privacy {
+    // The privacy tab holds a browser section above an app picker, so it
+    // scrolls like every other tab — it just gets a wider column for the
+    // app grid.
+    ScrollView(.vertical, showsIndicators: false) {
       VStack(alignment: .leading, spacing: 24) {
         tabContent
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.top, 24)
       .padding(.trailing, 16)
       .padding(.bottom, 24)
-      .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
-    } else {
-      ScrollView(.vertical, showsIndicators: false) {
-        VStack(alignment: .leading, spacing: 24) {
-          tabContent
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 24)
-        .padding(.trailing, 16)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity, minHeight: 0, alignment: .topLeading)
-      }
-      .frame(maxWidth: 600, maxHeight: .infinity, alignment: .topLeading)
+      .frame(maxWidth: .infinity, minHeight: 0, alignment: .topLeading)
+    }
+    .frame(
+      maxWidth: contentMaxWidth,
+      maxHeight: .infinity,
+      alignment: .topLeading
+    )
+  }
+
+  /// Privacy gets room for its app grid, Account for its plan cards (Figma: 794 wide); the rest read best narrow.
+  private var contentMaxWidth: CGFloat {
+    switch selectedTab {
+    case .account: return 820
+    case .privacy: return 760
+    default: return 600
     }
   }
 
@@ -255,6 +262,8 @@ struct SettingsView: View {
       switch selectedTab {
       case .account:
         SettingsAccountSection()
+      case .permissions:
+        SettingsPermissionsTabView()
       case .storage:
         SettingsStorageTabView(viewModel: storageViewModel)
       case .privacy:
